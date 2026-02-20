@@ -56,8 +56,8 @@ export async function POST(req: Request) {
   }
 
   const allowedTypes = ["text", "image", "audio", "video"] as const;
-  const type = allowedTypes.includes(typeRaw as (typeof allowedTypes)[number]) ? typeRaw : "text";
-  if (!allowedTypes.includes(type as (typeof allowedTypes)[number])) {
+  const type = (allowedTypes.includes(typeRaw as (typeof allowedTypes)[number]) ? typeRaw : "text") as typeof allowedTypes[number];
+  if (!allowedTypes.includes(type)) {
     return NextResponse.json({ error: "不支持的类型" }, { status: 400 });
   }
 
