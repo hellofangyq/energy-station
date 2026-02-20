@@ -25,7 +25,11 @@ export async function POST(req: Request) {
   const body = await req.json();
   const name = String(body.name ?? "");
   const role = String(body.role ?? "CHILD");
-  const bottleStyle = String(body.bottleStyle ?? "bottle");
+  const bottleStyleRaw = String(body.bottleStyle ?? "bottle");
+  const bottleStyle =
+    bottleStyleRaw === "station" || bottleStyleRaw === "jar" || bottleStyleRaw === "constellation"
+      ? bottleStyleRaw
+      : "bottle";
 
   if (!name) {
     return NextResponse.json({ error: "缺少姓名" }, { status: 400 });
