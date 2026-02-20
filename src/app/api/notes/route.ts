@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
   const formData = await req.formData();
   const memberId = String(formData.get("memberId") ?? "");
-  const type = String(formData.get("type") ?? "text");
+  const typeRaw = String(formData.get("type") ?? "text");
   const title = String(formData.get("title") ?? "");
   const text = String(formData.get("text") ?? "");
   const eventDateRaw = String(formData.get("eventDate") ?? "");
@@ -55,8 +55,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "缺少标题" }, { status: 400 });
   }
 
-  const allowedTypes = ["text", "image", "audio", "video"];
-  if (!allowedTypes.includes(type)) {
+  const allowedTypes = ["text", "image", "audio", "video"] as const;
+  const type = allowedTypes.includes(typeRaw as (typeof allowedTypes)[number]) ? typeRaw : "text";
+  if (!allowedTypes.includes(type as (typeof allowedTypes)[number])) {
     return NextResponse.json({ error: "不支持的类型" }, { status: 400 });
   }
 
