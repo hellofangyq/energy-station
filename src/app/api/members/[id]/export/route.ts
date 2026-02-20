@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
+  const { id } = await params;
   const member = await prisma.member.findFirst({
-    where: { id: params.id, userId }
+    where: { id, userId }
   });
   if (!member) {
     return NextResponse.json({ error: "成员不存在" }, { status: 404 });

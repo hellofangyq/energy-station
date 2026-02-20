@@ -3,12 +3,13 @@ import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 import { sendRejectionEmail } from "@/lib/mailer";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
+  const { id } = await params;
   const body = await req.json();
   const status = String(body.status ?? "");
   if (!status) {
@@ -16,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const existing = await prisma.note.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { member: true, sender: true }
   });
 
@@ -25,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const note = await prisma.note.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       status: status === "REJECTED" ? "REJECTED" : "ACCEPTED",
       rejectedAt: status === "REJECTED" ? new Date() : null
@@ -53,14 +54,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ note });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
+  const { id } = await params;
   const existing = await prisma.note.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { member: true }
   });
 
@@ -68,6 +70,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "无权操作该纸条" }, { status: 403 });
   }
 
-  await prisma.note.delete({ where: { id: params.id } });
+  await prisma.note.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
