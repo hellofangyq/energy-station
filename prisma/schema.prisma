@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  SELF
+  CHILD
+}
+
+enum BottleStyle {
+  bottle
+  station
+  jar
+  constellation
+}
+
+enum NoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NoteType {
+  text
+  image
+  audio
+  video
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  members      Member[]
+  notesSent    Note[]   @relation("NotesSent")
+  notifications Notification[]
+}
+
+model Member {
+  id          String      @id @default(cuid())
+  userId      String
+  name        String
+  role        MemberRole
+  bottleStyle BottleStyle @default(bottle)
+  avatarUrl   String?
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id])
+  notes       Note[]
+  notifications Notification[]
+}
+
+model Note {
+  id          String     @id @default(cuid())
+  memberId    String
+  senderId    String
+  type        NoteType
+  title       String
+  text        String?
+  mediaUrl    String?
+  status      NoteStatus @default(PENDING)
+  inboxRead   Boolean    @default(false)
+  eventDate   DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  rejectedAt  DateTime?
+
+  member Member @relation(fields: [memberId], references: [id])
+  sender User   @relation("NotesSent", fields: [senderId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  memberId  String?
+  title     String
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  member Member? @relation(fields: [memberId], references: [id])
+}
