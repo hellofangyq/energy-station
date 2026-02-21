@@ -10,8 +10,11 @@ export function getDemoNotes(): NotePreview[] {
       memberName: "小宇",
       senderName: "妈妈",
       createdAtLabel: "今天 19:30",
+      createdAtISO: "2026-02-20T11:30:00.000Z",
       eventDateLabel: "2026/02/20",
+      eventDateISO: "2026-02-20T12:00:00.000Z",
       statusLabel: "已接收",
+      inboxRead: false,
       mediaType: "text"
     },
     {
@@ -22,8 +25,11 @@ export function getDemoNotes(): NotePreview[] {
       memberName: "我",
       senderName: "我",
       createdAtLabel: "昨天 21:10",
+      createdAtISO: "2026-02-19T13:10:00.000Z",
       eventDateLabel: "2026/02/19",
+      eventDateISO: "2026-02-19T12:00:00.000Z",
       statusLabel: "已接收",
+      inboxRead: true,
       mediaType: "image",
       mediaUrl: "/uploads/demo.jpg",
       mediaDuration: 0
@@ -36,8 +42,11 @@ export function getDemoNotes(): NotePreview[] {
       memberName: "小希",
       senderName: "爸爸",
       createdAtLabel: "2 天前",
+      createdAtISO: "2026-02-18T12:10:00.000Z",
       eventDateLabel: "2026/02/18",
+      eventDateISO: "2026-02-18T12:00:00.000Z",
       statusLabel: "待接收",
+      inboxRead: false,
       mediaType: "audio",
       mediaDuration: 42
     }

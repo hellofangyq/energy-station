@@ -4,6 +4,8 @@
 
 :root {
   color-scheme: light;
+  --font-fraunces: "Georgia", "Times New Roman", serif;
+  --font-grotesk: "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
 }
 
 body {

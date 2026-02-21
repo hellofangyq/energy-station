@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Space_Grotesk } from "next/font/google";
 import "./globals.css";
-
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
 
 export const metadata: Metadata = {
   title: "能量站",
@@ -13,8 +9,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh">
-      <body className={`${fraunces.variable} ${grotesk.variable} font-sans`}
-        style={{ fontFamily: "var(--font-grotesk)" }}>
+      <body className="font-sans" style={{ fontFamily: "var(--font-grotesk)" }}>
         <div className="min-h-screen">
           <header className="px-5 pt-6 pb-4 md:px-12">
             <div className="flex items-center justify-between">

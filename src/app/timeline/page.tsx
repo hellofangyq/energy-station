@@ -12,7 +12,7 @@ type Member = {
   name: string;
   role: "SELF" | "CHILD";
   bottleStyle: "bottle" | "station" | "jar" | "constellation";
-  avatarUrl?: string | null;
+  avatarUrl: string | null;
   createdAt: string;
   userId: string;
 };
@@ -96,7 +96,16 @@ export default function TimelinePage() {
         rejectedAt: note.rejectedAt ? new Date(note.rejectedAt) : null,
         inboxRead: note.inboxRead ?? false,
         text: note.text ?? null,
-        mediaUrl: note.mediaUrl ?? null
+        mediaUrl: note.mediaUrl ?? null,
+        member: {
+          ...note.member,
+          avatarUrl: note.member.avatarUrl ?? null,
+          createdAt: new Date(note.member.createdAt)
+        },
+        sender: {
+          ...note.sender,
+          createdAt: new Date(note.sender.createdAt)
+        }
       })
     );
     return mapped.sort((a, b) => {

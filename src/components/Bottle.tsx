@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactElement } from "react";
 import { createPortal } from "react-dom";
 import type { NotePreview } from "@/lib/types";
 
@@ -24,7 +25,7 @@ function weightedPick(list: NotePreview[], tauDays = 7, epsilon = 0.12) {
   return list[list.length - 1];
 }
 
-const mediaIcons: Record<NotePreview["mediaType"], JSX.Element | null> = {
+const mediaIcons: Record<NotePreview["mediaType"], ReactElement | null> = {
   text: null,
   image: (
     <svg viewBox="0 0 24 24" className="h-4 w-4 text-ember" fill="none" stroke="currentColor" strokeWidth="1.6">
