@@ -88,7 +88,8 @@ export default function TimelinePage() {
         ...note,
         createdAt: new Date(note.createdAt),
         eventDate: new Date(note.eventDate),
-        rejectedAt: note.rejectedAt ? new Date(note.rejectedAt) : null
+        rejectedAt: note.rejectedAt ? new Date(note.rejectedAt) : null,
+        inboxRead: false
       })
     );
     return mapped.sort((a, b) => {
