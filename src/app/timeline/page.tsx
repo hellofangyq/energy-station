@@ -11,6 +11,10 @@ type Member = {
   id: string;
   name: string;
   role: "SELF" | "CHILD";
+  bottleStyle: "bottle" | "station" | "jar" | "constellation";
+  avatarUrl?: string | null;
+  createdAt: string;
+  userId: string;
 };
 
 type NoteApi = {
@@ -22,11 +26,12 @@ type NoteApi = {
   text?: string | null;
   mediaUrl?: string | null;
   status: "PENDING" | "ACCEPTED" | "REJECTED";
+  inboxRead?: boolean;
   eventDate: string;
   createdAt: string;
   rejectedAt?: string | null;
   member: Member;
-  sender: { id: string; name: string; email: string };
+  sender: { id: string; name: string; email: string; passwordHash: string; createdAt: string };
 };
 
 export default function TimelinePage() {
@@ -89,7 +94,7 @@ export default function TimelinePage() {
         createdAt: new Date(note.createdAt),
         eventDate: new Date(note.eventDate),
         rejectedAt: note.rejectedAt ? new Date(note.rejectedAt) : null,
-        inboxRead: false,
+        inboxRead: note.inboxRead ?? false,
         text: note.text ?? null,
         mediaUrl: note.mediaUrl ?? null
       })
