@@ -31,7 +31,15 @@ type NoteApi = {
   createdAt: string;
   rejectedAt?: string | null;
   member: Member;
-  sender: { id: string; name: string; email: string; passwordHash: string; createdAt: string };
+  sender: {
+    id: string;
+    name: string;
+    email: string;
+    passwordHash: string;
+    resetTokenHash?: string | null;
+    resetTokenExpiresAt?: string | null;
+    createdAt: string;
+  };
 };
 
 export default function TimelinePage() {
@@ -104,6 +112,10 @@ export default function TimelinePage() {
         },
         sender: {
           ...note.sender,
+          resetTokenHash: note.sender.resetTokenHash ?? null,
+          resetTokenExpiresAt: note.sender.resetTokenExpiresAt
+            ? new Date(note.sender.resetTokenExpiresAt)
+            : null,
           createdAt: new Date(note.sender.createdAt)
         }
       })

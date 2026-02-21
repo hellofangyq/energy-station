@@ -53,3 +53,28 @@ export async function sendRejectionEmail(params: {
     text
   });
 }
+
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}) {
+  if (!isEmailConfigured()) return;
+
+  const from = getEnv("SMTP_FROM");
+  const transport = createTransport();
+  const subject = "能量站：重置密码";
+  const text = [
+    `你好，${params.name}：`,
+    "点击下面链接重置密码：",
+    params.resetUrl,
+    "若非本人操作，请忽略此邮件。"
+  ].join("\n");
+
+  await transport.sendMail({
+    from,
+    to: params.to,
+    subject,
+    text
+  });
+}

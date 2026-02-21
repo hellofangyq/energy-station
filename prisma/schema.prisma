@@ -37,6 +37,8 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  resetTokenHash String?
+  resetTokenExpiresAt DateTime?
   createdAt    DateTime @default(now())
   members      Member[]
   notesSent    Note[]   @relation("NotesSent")

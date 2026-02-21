@@ -150,9 +150,10 @@ export default function Bottle({
             />
           )}
           <div
-            className={`relative z-40 flex h-[420px] w-[300px] items-end justify-center ${
+            className={`relative z-40 flex h-[420px] w-[300px] items-end justify-center cursor-pointer ${
               shake ? "shake-animate" : ""
             } ${corkOpen ? "bottle-open" : ""}`}
+            onClick={onShake}
           >
             <div className="cork" />
             <div className="jar-neck" />
@@ -193,6 +194,9 @@ export default function Bottle({
                   <div className="text-xs text-ink/70 max-h-12 overflow-hidden">
                     {current?.text ?? "打开属于你的一条能量回忆。"}
                   </div>
+                  {current?.senderName && (
+                    <div className="text-[11px] text-ink/60">From {current.senderName}</div>
+                  )}
                 </div>
               </button>
             </div>

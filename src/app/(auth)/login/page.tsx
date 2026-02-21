@@ -58,7 +58,10 @@ export default function LoginPage() {
           登录
         </button>
         {message && <p className="text-xs text-ink/70">{message}</p>}
-        <a className="text-xs text-ember" href="/signup">没有账号？注册</a>
+        <div className="flex items-center justify-between text-xs">
+          <a className="text-ember" href="/signup">没有账号？注册</a>
+          <a className="text-ember" href="/forgot">忘记密码</a>
+        </div>
       </form>
     </div>
   );

@@ -317,7 +317,7 @@ export default function NewEnergyPage() {
             type="date"
             name="eventDate"
             defaultValue={today}
-            className="mt-2 w-full rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm"
+            className="mt-2 w-full max-w-full rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm date-input"
           />
         </div>
 

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return NextResponse.json({ error: "邮箱已注册" }, { status: 409 });
+    return NextResponse.json({ error: "该邮箱已注册" }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);

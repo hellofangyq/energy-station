@@ -47,7 +47,7 @@ export default function EnergyCard({ note, onDelete }: { note: NotePreview; onDe
         </div>
       )}
       <div className="mt-4 flex items-center gap-2 text-xs text-ink/60">
-        <span>来自 {note.senderName}</span>
+        <span>From {note.senderName}</span>
         <span>· 状态 {note.statusLabel}</span>
         <span>· 日期 {note.eventDateLabel}</span>
         {onDelete && (
