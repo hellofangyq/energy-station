@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
+  const router = useRouter();
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -21,6 +23,8 @@ export default function LoginPage() {
       });
       if (!response.ok) throw new Error("登录失败");
       setMessage("登录成功");
+      router.push("/");
+      router.refresh();
     } catch (error) {
       setMessage("登录失败，请检查邮箱或密码");
     }
