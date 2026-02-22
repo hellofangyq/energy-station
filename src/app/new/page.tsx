@@ -262,7 +262,16 @@ export default function NewEnergyPage() {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
-    const ffmpeg = await loadFFmpeg();
+    let ffmpeg: FFmpeg;
+    try {
+      ffmpeg = await loadFFmpeg();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("ffmpeg is not loaded")) {
+        throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+      }
+      throw error;
+    }
     if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
