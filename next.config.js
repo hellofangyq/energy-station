@@ -4,6 +4,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
+  experimental: {
+    middlewareClientMaxBodySize: "50mb"
+  },
   images: {
     remotePatterns: []
   }
