@@ -6,7 +6,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { getServerDict, getServerLang } from "@/lib/i18n-server";
 
 export async function generateMetadata() {
-  const t = getServerDict();
+  const t = await getServerDict();
   return {
     title: t.appName,
     description: t.tagline
@@ -17,8 +17,8 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const userId = await getSessionUserId();
-  const t = getServerDict();
-  const lang = getServerLang();
+  const t = await getServerDict();
+  const lang = await getServerLang();
   const user = userId
     ? await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
     : null;

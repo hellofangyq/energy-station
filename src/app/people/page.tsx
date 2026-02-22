@@ -6,8 +6,8 @@ import { getServerDict, getServerLang } from "@/lib/i18n-server";
 
 export default async function PeoplePage() {
   const userId = await getSessionUserId();
-  const t = getServerDict();
-  const lang = getServerLang();
+  const t = await getServerDict();
+  const lang = await getServerLang();
   if (!userId) {
     return (
       <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">

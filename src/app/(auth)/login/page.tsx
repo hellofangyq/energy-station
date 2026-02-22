@@ -1,8 +1,8 @@
 import LoginForm from "@/components/LoginForm";
 import { getServerDict } from "@/lib/i18n-server";
 
-export default function LoginPage() {
-  const t = getServerDict();
+export default async function LoginPage() {
+  const t = await getServerDict();
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <header>
