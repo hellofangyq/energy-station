@@ -23,6 +23,8 @@ export default function NewEnergyPage() {
   const [recordDuration, setRecordDuration] = useState<number | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
+  const [cancelSend, setCancelSend] = useState(false);
+  const compressAbortRef = useRef<AbortController | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -199,7 +201,7 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
-  const compressVideo = async (file: File): Promise<File> => {
+  const compressVideo = async (file: File, signal?: AbortSignal): Promise<File> => {
     if (typeof window === "undefined" || !("MediaRecorder" in window)) {
       throw new Error(lang === "en" ? "This browser cannot compress video" : "当前浏览器不支持本地压缩");
     }
@@ -211,6 +213,10 @@ export default function NewEnergyPage() {
     const mp4Type = mp4Types.find((type) => MediaRecorder.isTypeSupported(type));
     if (!mp4Type) {
       throw new Error(lang === "en" ? "This browser cannot export MP4" : "当前浏览器不支持导出 MP4");
+    }
+
+    if (signal?.aborted) {
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
     const url = URL.createObjectURL(file);
@@ -253,11 +259,27 @@ export default function NewEnergyPage() {
       if (event.data.size > 0) chunks.push(event.data);
     };
 
-    const done = new Promise<Blob>((resolve) => {
+    const done = new Promise<Blob>((resolve, reject) => {
       recorder.onstop = () => resolve(new Blob(chunks, { type: mp4Type }));
+      recorder.onerror = () => reject(new Error(lang === "en" ? "Compression failed" : "压缩失败"));
     });
 
+    const abortHandler = () => {
+      try {
+        recorder.stop();
+      } catch {
+        // ignore
+      }
+      try {
+        video.pause();
+      } catch {
+        // ignore
+      }
+    };
+    signal?.addEventListener("abort", abortHandler, { once: true });
+
     const draw = () => {
+      if (signal?.aborted) return;
       ctx.drawImage(video, 0, 0, width, height);
       if (!video.paused && !video.ended) {
         requestAnimationFrame(draw);
@@ -276,6 +298,11 @@ export default function NewEnergyPage() {
     URL.revokeObjectURL(url);
     video.src = "";
     canvasStream.getTracks().forEach((track) => track.stop());
+    signal?.removeEventListener("abort", abortHandler);
+
+    if (signal?.aborted) {
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
 
     if (blob.size >= file.size * 0.95) {
       return file;
@@ -287,6 +314,8 @@ export default function NewEnergyPage() {
     event.preventDefault();
     setStatus(t.common.loading);
     setCompressError(null);
+    setCancelSend(false);
+    compressAbortRef.current?.abort();
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
@@ -323,10 +352,23 @@ export default function NewEnergyPage() {
     if (selectedType === "video" && media && media.size > 0) {
       try {
         setCompressing(true);
-        const compressed = await compressVideo(media);
+        const controller = new AbortController();
+        compressAbortRef.current = controller;
+        const compressed = await compressVideo(media, controller.signal);
+        if (cancelSend || controller.signal.aborted) {
+          setCompressing(false);
+          setStatus(null);
+          return;
+        }
         formData.set("media", compressed);
       } catch (error) {
-        setCompressError(error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败"));
+        if (cancelSend) {
+          setStatus(null);
+          return;
+        }
+        setCompressError(
+          error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败")
+        );
       } finally {
         setCompressing(false);
       }
@@ -514,6 +556,26 @@ export default function NewEnergyPage() {
           {status && <span className="text-xs text-ink/70">{status}</span>}
         </div>
       </form>
+
+      {compressing && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-soft">
+            <p className="text-sm text-ink/80">{lang === "en" ? "Compressing video…" : "正在压缩视频……"}</p>
+            <button
+              type="button"
+              className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
+              onClick={() => {
+                compressAbortRef.current?.abort();
+                setCancelSend(true);
+                setCompressing(false);
+                setStatus(null);
+              }}
+            >
+              {lang === "en" ? "Cancel send" : "取消发送"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
