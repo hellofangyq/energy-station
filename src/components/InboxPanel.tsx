@@ -47,10 +47,24 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
   const clearItems = () => {
     const noteIds = items.map((item) => item.id);
     const noticeIds = groupedNotifications.map((notice) => notice.id);
+    void acceptNotes(noteIds);
     void markRead(noteIds);
     void markNotificationsRead(noticeIds);
     setItems([]);
     setSelected(null);
+  };
+
+  const acceptNotes = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/notes/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ACCEPTED" })
+        })
+      )
+    );
   };
 
   const markRead = async (ids: string[]) => {
