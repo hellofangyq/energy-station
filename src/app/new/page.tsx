@@ -600,8 +600,6 @@ export default function NewEnergyPage() {
               className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
               onClick={() => {
                 compressAbortRef.current?.abort();
-                ffmpegRef.current?.terminate();
-                ffmpegRef.current = null;
                 cancelSendRef.current = true;
                 setCancelSend(true);
                 setCompressProgress(null);
