@@ -202,6 +202,14 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
+  const isIOS = () => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent;
+    const isAppleDevice = /iPad|iPhone|iPod/.test(ua);
+    const isMacTouch = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+    return isAppleDevice || isMacTouch;
+  };
+
   const compressVideo = async (file: File, signal?: AbortSignal): Promise<File> => {
     if (typeof window === "undefined" || !("MediaRecorder" in window)) {
       throw new Error(lang === "en" ? "This browser cannot compress video" : "当前浏览器不支持本地压缩");
@@ -359,7 +367,7 @@ export default function NewEnergyPage() {
       formData.set("media", recordedFile);
     }
 
-    if (selectedType === "video" && media && media.size > 0) {
+    if (selectedType === "video" && media && media.size > 0 && isIOS()) {
       try {
         setCompressing(true);
         const controller = new AbortController();
