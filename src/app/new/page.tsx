@@ -208,6 +208,9 @@ export default function NewEnergyPage() {
 
   const loadFFmpeg = async () => {
     if (ffmpegRef.current) return ffmpegRef.current;
+    if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
     const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpegClient();
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
