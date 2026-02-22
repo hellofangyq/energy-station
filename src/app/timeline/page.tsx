@@ -41,6 +41,12 @@ type NoteApi = {
     name: string;
     email: string;
     passwordHash: string;
+    role?: "OWNER" | "MEMBER";
+    linkedMemberId?: string | null;
+    securityQ1?: string | null;
+    securityQ2?: string | null;
+    securityA1Hash?: string | null;
+    securityA2Hash?: string | null;
     resetTokenHash?: string | null;
     resetTokenExpiresAt?: string | null;
     createdAt: string;
@@ -137,6 +143,12 @@ export default function TimelinePage() {
         },
         sender: {
           ...note.sender,
+          role: note.sender.role ?? "OWNER",
+          linkedMemberId: note.sender.linkedMemberId ?? null,
+          securityQ1: note.sender.securityQ1 ?? null,
+          securityQ2: note.sender.securityQ2 ?? null,
+          securityA1Hash: note.sender.securityA1Hash ?? null,
+          securityA2Hash: note.sender.securityA2Hash ?? null,
           resetTokenHash: note.sender.resetTokenHash ?? null,
           resetTokenExpiresAt: note.sender.resetTokenExpiresAt
             ? new Date(note.sender.resetTokenExpiresAt)
