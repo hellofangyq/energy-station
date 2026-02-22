@@ -21,6 +21,8 @@ export default function NewEnergyPage() {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordDuration, setRecordDuration] = useState<number | null>(null);
+  const [compressing, setCompressing] = useState(false);
+  const [compressError, setCompressError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -197,9 +199,94 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
+  const compressVideo = async (file: File): Promise<File> => {
+    if (typeof window === "undefined" || !("MediaRecorder" in window)) {
+      throw new Error(lang === "en" ? "This browser cannot compress video" : "当前浏览器不支持本地压缩");
+    }
+    const mp4Types = [
+      "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+      "video/mp4;codecs=h264,aac",
+      "video/mp4"
+    ];
+    const mp4Type = mp4Types.find((type) => MediaRecorder.isTypeSupported(type));
+    if (!mp4Type) {
+      throw new Error(lang === "en" ? "This browser cannot export MP4" : "当前浏览器不支持导出 MP4");
+    }
+
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error(lang === "en" ? "Cannot read video" : "无法读取视频"));
+    });
+
+    const targetHeight = 480;
+    const targetWidth = 854;
+    const scale = Math.min(1, targetHeight / video.videoHeight, targetWidth / video.videoWidth);
+    const width = Math.max(2, Math.floor((video.videoWidth * scale) / 2) * 2);
+    const height = Math.max(2, Math.floor((video.videoHeight * scale) / 2) * 2);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error(lang === "en" ? "Canvas not supported" : "浏览器不支持 Canvas");
+
+    const canvasStream = canvas.captureStream(30);
+    const sourceStream = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
+    if (sourceStream) {
+      sourceStream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
+    }
+
+    const chunks: BlobPart[] = [];
+    const recorder = new MediaRecorder(canvasStream, {
+      mimeType: mp4Type,
+      videoBitsPerSecond: 450_000,
+      audioBitsPerSecond: 64_000
+    });
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+
+    const done = new Promise<Blob>((resolve) => {
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mp4Type }));
+    });
+
+    const draw = () => {
+      ctx.drawImage(video, 0, 0, width, height);
+      if (!video.paused && !video.ended) {
+        requestAnimationFrame(draw);
+      }
+    };
+
+    recorder.start(250);
+    await video.play();
+    requestAnimationFrame(draw);
+
+    await new Promise<void>((resolve) => {
+      video.onended = () => resolve();
+    });
+    recorder.stop();
+    const blob = await done;
+    URL.revokeObjectURL(url);
+    video.src = "";
+    canvasStream.getTracks().forEach((track) => track.stop());
+
+    if (blob.size >= file.size * 0.95) {
+      return file;
+    }
+    return new File([blob], file.name.replace(/\\.\w+$/, ".mp4"), { type: mp4Type });
+  };
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(t.common.loading);
+    setCompressError(null);
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
@@ -231,6 +318,18 @@ export default function NewEnergyPage() {
       }
       const recordedFile = new File([recordedBlob], `record-${Date.now()}.webm`, { type: recordedBlob.type });
       formData.set("media", recordedFile);
+    }
+
+    if (selectedType === "video" && media && media.size > 0) {
+      try {
+        setCompressing(true);
+        const compressed = await compressVideo(media);
+        formData.set("media", compressed);
+      } catch (error) {
+        setCompressError(error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败"));
+      } finally {
+        setCompressing(false);
+      }
     }
 
     try {
@@ -399,6 +498,12 @@ export default function NewEnergyPage() {
             </div>
           )}
           <p className="mt-2 text-xs text-ink/60">{t.new.mediaHint}</p>
+          {selectedType === "video" && compressing && (
+            <p className="mt-2 text-xs text-ink/60">
+              {lang === "en" ? "Compressing video…" : "正在压缩视频…"}
+            </p>
+          )}
+          {compressError && <p className="mt-2 text-xs text-ember">{compressError}</p>}
           {fileError && <p className="mt-2 text-xs text-ember">{fileError}</p>}
         </div>
 
