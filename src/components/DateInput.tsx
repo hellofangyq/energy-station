@@ -9,7 +9,14 @@ type Props = {
   className?: string;
 };
 
-export default function DateInput({ value, onChange, placeholder = "YYYY-MM-DD", name, defaultValue }: Props) {
+export default function DateInput({
+  value,
+  onChange,
+  placeholder = "YYYY-MM-DD",
+  name,
+  defaultValue,
+  className
+}: Props) {
   return (
     <input
       type="text"
