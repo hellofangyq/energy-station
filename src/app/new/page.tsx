@@ -28,7 +28,6 @@ export default function NewEnergyPage() {
   const [cancelSend, setCancelSend] = useState(false);
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
-  const ffmpegRef = useRef<FFmpeg | null>(null);
   const currentFfmpegRef = useRef<FFmpeg | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
@@ -209,23 +208,26 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
-  const loadFFmpeg = async () => {
-    if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+    let timer: number | undefined;
+    try {
+      return await new Promise<T>((resolve, reject) => {
+        timer = window.setTimeout(() => reject(new Error("timeout")), ms);
+        promise.then(resolve).catch(reject);
+      });
+    } finally {
+      if (timer) window.clearTimeout(timer);
+    }
+  };
+
+  const compressVideo = async (file: File, signal: AbortSignal | undefined, sessionId: number): Promise<File> => {
+    if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
+
     const ffmpeg = new FFmpeg();
+    currentFfmpegRef.current = ffmpeg;
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
-    const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
-      let timer: number | undefined;
-      try {
-        return await new Promise<T>((resolve, reject) => {
-          timer = window.setTimeout(() => reject(new Error("timeout")), ms);
-          promise.then(resolve).catch(reject);
-        });
-      } finally {
-        if (timer) window.clearTimeout(timer);
-      }
-    };
     await withTimeout(
       ffmpeg.load({
         coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
@@ -234,8 +236,9 @@ export default function NewEnergyPage() {
       }),
       30000
     );
-    if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
+    if (signal?.aborted || sessionId !== compressSessionRef.current) {
       ffmpeg.terminate();
+      currentFfmpegRef.current = null;
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
     ffmpeg.on("log", ({ message }) => {
@@ -243,33 +246,10 @@ export default function NewEnergyPage() {
     });
     ffmpeg.on("progress", ({ progress }) => {
       const pct = Math.round(progress * 100);
-      if (
-        compressSessionRef.current > 0 &&
-        activeSessionRef.current === compressSessionRef.current &&
-        currentFfmpegRef.current === ffmpeg
-      ) {
+      if (activeSessionRef.current === sessionId && currentFfmpegRef.current === ffmpeg) {
         setCompressProgress(pct);
       }
     });
-    currentFfmpegRef.current = ffmpeg;
-    return ffmpeg;
-  };
-
-  const compressVideo = async (file: File, signal?: AbortSignal): Promise<File> => {
-    if (signal?.aborted) {
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-
-    let ffmpeg: FFmpeg;
-    try {
-      ffmpeg = await loadFFmpeg();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "";
-      if (msg.includes("ffmpeg is not loaded")) {
-        throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-      }
-      throw error;
-    }
     if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
@@ -413,7 +393,7 @@ export default function NewEnergyPage() {
         setCompressing(true);
         const controller = new AbortController();
         compressAbortRef.current = controller;
-        const compressed = await compressVideo(media, controller.signal);
+        const compressed = await compressVideo(media, controller.signal, sessionId);
         if (cancelSendRef.current || controller.signal.aborted || sessionId !== compressSessionRef.current) {
           setCompressing(false);
           setStatus(null);
