@@ -6,7 +6,7 @@ import { useActiveMember } from "@/components/useActiveMember";
 import { useSessionUser } from "@/components/useSessionUser";
 import { useT } from "@/components/LanguageProvider";
 import { translateError } from "@/lib/error-map";
-import type { FFmpeg } from "@ffmpeg/ffmpeg";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
 
 export default function NewEnergyPage() {
   const { t, lang } = useT();
@@ -213,13 +213,7 @@ export default function NewEnergyPage() {
     if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
-    let ffmpeg: FFmpeg;
-    try {
-      const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
-      ffmpeg = new FFmpegClient();
-    } catch {
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
+    const ffmpeg = new FFmpeg();
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
     const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
       let timer: number | undefined;
