@@ -162,7 +162,13 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
                 />
               )}
               {selected.mediaUrl && selected.mediaType === "video" && (
-                <video src={selected.mediaUrl} controls className="mt-3 w-full rounded-xl" />
+                <video
+                  src={selected.mediaUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="mt-3 w-full rounded-xl"
+                />
               )}
               {selected.mediaUrl && selected.mediaType === "audio" && (
                 <audio controls src={selected.mediaUrl} className="mt-3 w-full" />

@@ -79,9 +79,15 @@ export default function EnergyCard({ note, onDelete }: { note: NotePreview; onDe
               {note.mediaType === "image" && (
                 <img src={note.mediaUrl} alt={lang === "en" ? "Energy image" : "能量图片"} className="mt-3 max-h-[70vh] w-full rounded-lg object-contain" />
               )}
-              {note.mediaType === "video" && (
-                <video src={note.mediaUrl} controls className="mt-3 max-h-[70vh] w-full rounded-lg" />
-              )}
+            {note.mediaType === "video" && (
+              <video
+                src={note.mediaUrl}
+                controls
+                playsInline
+                preload="metadata"
+                className="mt-3 max-h-[70vh] w-full rounded-lg"
+              />
+            )}
             </div>
           </div>,
           document.body

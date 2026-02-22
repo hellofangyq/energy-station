@@ -223,7 +223,13 @@ export default function Bottle({
                 <img src={current.mediaUrl} alt={lang === "en" ? "Energy image" : "能量图片"} className="mt-3 max-h-[70vh] w-full rounded-lg object-contain" />
               )}
               {current.mediaType === "video" && (
-                <video src={current.mediaUrl} controls className="mt-3 max-h-[70vh] w-full rounded-lg" />
+                <video
+                  src={current.mediaUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="mt-3 max-h-[70vh] w-full rounded-lg"
+                />
               )}
               {current.mediaType === "audio" && (
                 <audio src={current.mediaUrl} controls className="mt-3 w-full" />
