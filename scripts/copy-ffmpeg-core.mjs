@@ -32,9 +32,19 @@ for (const file of coreFiles) {
 const workerSrc = path.join(workerDir, "worker.js");
 const workerDest = path.join(targetDir, "ffmpeg-worker.js");
 if (fs.existsSync(workerSrc)) {
-  fs.copyFileSync(workerSrc, workerDest);
+  let content = fs.readFileSync(workerSrc, "utf8");
+  content = content.replace(/"\.\/const\.js"/g, "\"/ffmpeg/const.js\"");
+  fs.writeFileSync(workerDest, content);
 } else {
   console.warn(`[ffmpeg] Missing worker file: ${workerSrc}`);
+}
+
+const constSrc = path.join(workerDir, "const.js");
+const constDest = path.join(targetDir, "const.js");
+if (fs.existsSync(constSrc)) {
+  fs.copyFileSync(constSrc, constDest);
+} else {
+  console.warn(`[ffmpeg] Missing const file: ${constSrc}`);
 }
 
 console.log("[ffmpeg] Core files copied to public/ffmpeg");
