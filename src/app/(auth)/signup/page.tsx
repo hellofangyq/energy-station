@@ -69,7 +69,7 @@ export default function SignupPage() {
         throw new Error(translateError(data.error, lang) || (lang === "en" ? "Sign up failed" : "注册失败"));
       }
       setMessage(t.auth.signupSuccess);
-      window.location.href = "/";
+      window.location.href = "/login";
     } catch (error) {
       setMessage(error instanceof Error ? error.message : (lang === "en" ? "Sign up failed. Please try again." : "注册失败，请稍后再试"));
     }
@@ -83,8 +83,6 @@ export default function SignupPage() {
           {t.auth.signupTitle}
         </h2>
       </header>
-
-      {!inviteToken ? <IntroCards /> : null}
 
       {inviteToken ? (
         <div className="gradient-panel rounded-xxl p-4 text-sm text-ink/70">
@@ -180,6 +178,8 @@ export default function SignupPage() {
           <a className="text-ember" href="/forgot">{t.auth.forgot}</a>
         </div>
       </form>
+
+      {!inviteToken ? <IntroCards /> : null}
     </div>
   );
 }
