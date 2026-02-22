@@ -11,8 +11,7 @@ const targetDir = path.join(rootDir, "public", "ffmpeg");
 
 const files = [
   "ffmpeg-core.js",
-  "ffmpeg-core.wasm",
-  "ffmpeg-core.worker.js"
+  "ffmpeg-core.wasm"
 ];
 
 if (!fs.existsSync(sourceDir)) {
