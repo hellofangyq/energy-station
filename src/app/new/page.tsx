@@ -6,6 +6,8 @@ import { useActiveMember } from "@/components/useActiveMember";
 import { useSessionUser } from "@/components/useSessionUser";
 import { useT } from "@/components/LanguageProvider";
 import { translateError } from "@/lib/error-map";
+import type { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 export default function NewEnergyPage() {
   const { t, lang } = useT();
@@ -26,6 +28,7 @@ export default function NewEnergyPage() {
   const [cancelSend, setCancelSend] = useState(false);
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -202,129 +205,86 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
-  const isIOS = () => {
-    if (typeof navigator === "undefined") return false;
-    const ua = navigator.userAgent;
-    const isAppleDevice = /iPad|iPhone|iPod/.test(ua);
-    const isMacTouch = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-    return isAppleDevice || isMacTouch;
+  const loadFFmpeg = async () => {
+    if (ffmpegRef.current) return ffmpegRef.current;
+    const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
+    const ffmpeg = new FFmpegClient();
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+      workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript")
+    });
+    ffmpegRef.current = ffmpeg;
+    return ffmpeg;
   };
 
   const compressVideo = async (file: File, signal?: AbortSignal): Promise<File> => {
-    if (typeof window === "undefined" || !("MediaRecorder" in window)) {
-      throw new Error(lang === "en" ? "This browser cannot compress video" : "当前浏览器不支持本地压缩");
-    }
-    const mp4Types = [
-      "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
-      "video/mp4;codecs=h264,aac",
-      "video/mp4"
-    ];
-    const mp4Type = mp4Types.find((type) => MediaRecorder.isTypeSupported(type));
-    if (!mp4Type) {
-      throw new Error(lang === "en" ? "This browser cannot export MP4" : "当前浏览器不支持导出 MP4");
-    }
-
     if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
-    const url = URL.createObjectURL(file);
-    const video = document.createElement("video");
-    video.src = url;
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error(lang === "en" ? "Cannot read video" : "无法读取视频"));
-    });
-
-    const targetHeight = 480;
-    const targetWidth = 854;
-    const scale = Math.min(1, targetHeight / video.videoHeight, targetWidth / video.videoWidth);
-    const width = Math.max(2, Math.floor((video.videoWidth * scale) / 2) * 2);
-    const height = Math.max(2, Math.floor((video.videoHeight * scale) / 2) * 2);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error(lang === "en" ? "Canvas not supported" : "浏览器不支持 Canvas");
-
-    const canvasStream = canvas.captureStream(30);
-    const sourceStream = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
-    if (sourceStream) {
-      sourceStream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
-    }
-
-    const chunks: BlobPart[] = [];
-    const recorder = new MediaRecorder(canvasStream, {
-      mimeType: mp4Type,
-      videoBitsPerSecond: 450_000,
-      audioBitsPerSecond: 64_000
-    });
-
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
-    };
-
-    const done = new Promise<Blob>((resolve) => {
-      recorder.onstop = () => resolve(new Blob(chunks, { type: mp4Type }));
-      recorder.onerror = () => resolve(new Blob(chunks, { type: mp4Type }));
-    });
-
-    let cancelled = false;
-    const abortHandler = () => {
-      cancelled = true;
-      try {
-        recorder.stop();
-      } catch {
-        // ignore
-      }
-      try {
-        video.pause();
-      } catch {
-        // ignore
-      }
-    };
-    signal?.addEventListener("abort", abortHandler, { once: true });
-
-    const draw = () => {
-      if (signal?.aborted) return;
-      ctx.drawImage(video, 0, 0, width, height);
-      if (!video.paused && !video.ended) {
-        requestAnimationFrame(draw);
-      }
-    };
-
-    recorder.start(250);
-    await video.play();
-    requestAnimationFrame(draw);
-
-    await new Promise<void>((resolve) => {
-      video.onended = () => resolve();
-    });
-    recorder.stop();
-    const blob = cancelled
-      ? new Blob([], { type: mp4Type })
-      : await done;
-    URL.revokeObjectURL(url);
-    video.src = "";
-    canvasStream.getTracks().forEach((track) => track.stop());
-    signal?.removeEventListener("abort", abortHandler);
-
-    if (signal?.aborted || cancelled) {
+    const ffmpeg = await loadFFmpeg();
+    if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
+    const inputName = `input-${Date.now()}`;
+    const outputName = `output-${Date.now()}.mp4`;
+
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+    if (signal?.aborted) {
+      ffmpeg.deleteFile(inputName);
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
+
+    await ffmpeg.exec([
+      "-i",
+      inputName,
+      "-vf",
+      "scale=-2:480",
+      "-r",
+      "24",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-b:v",
+      "450k",
+      "-maxrate",
+      "500k",
+      "-bufsize",
+      "1000k",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      "-movflags",
+      "+faststart",
+      outputName
+    ]);
+
+    if (signal?.aborted) {
+      ffmpeg.deleteFile(inputName);
+      ffmpeg.deleteFile(outputName);
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
+
+    const data = await ffmpeg.readFile(outputName);
+    ffmpeg.deleteFile(inputName);
+    ffmpeg.deleteFile(outputName);
+
+    const blob = new Blob([data], { type: "video/mp4" });
     if (blob.size === 0) {
       throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
     }
-
     if (blob.size >= file.size * 0.95) {
       return file;
     }
-    return new File([blob], file.name.replace(/\\.\w+$/, ".mp4"), { type: mp4Type });
+    return new File([blob], file.name.replace(/\\.\w+$/, ".mp4"), { type: "video/mp4" });
   };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -367,7 +327,7 @@ export default function NewEnergyPage() {
       formData.set("media", recordedFile);
     }
 
-    if (selectedType === "video" && media && media.size > 0 && isIOS()) {
+    if (selectedType === "video" && media && media.size > 0) {
       try {
         setCompressing(true);
         const controller = new AbortController();
@@ -584,6 +544,8 @@ export default function NewEnergyPage() {
               className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
               onClick={() => {
                 compressAbortRef.current?.abort();
+                ffmpegRef.current?.terminate();
+                ffmpegRef.current = null;
                 cancelSendRef.current = true;
                 setCancelSend(true);
                 setCompressing(false);
