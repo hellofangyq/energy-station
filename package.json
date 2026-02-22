@@ -8,16 +8,18 @@
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "postinstall": "node scripts/copy-ffmpeg-core.mjs"
   },
   "dependencies": {
+    "@ffmpeg/core": "^0.12.6",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@prisma/client": "^6.4.1",
-    "@ffmpeg/ffmpeg": "^0.12.10",
-    "@ffmpeg/util": "^0.12.1",
     "@vercel/blob": "^0.23.4",
     "bcryptjs": "^2.4.3",
-    "jszip": "^3.10.1",
     "jose": "^5.2.4",
+    "jszip": "^3.10.1",
     "next": "^15.2.1",
     "nodemailer": "^6.9.13",
     "react": "^19.0.0",

@@ -209,7 +209,7 @@ export default function NewEnergyPage() {
     if (ffmpegRef.current) return ffmpegRef.current;
     const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpegClient();
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+    const baseURL = "/ffmpeg";
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
