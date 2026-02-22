@@ -6,29 +6,35 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 
-const sourceDir = path.join(rootDir, "node_modules", "@ffmpeg", "core", "dist", "esm");
+const coreDir = path.join(rootDir, "node_modules", "@ffmpeg", "core", "dist", "esm");
+const workerDir = path.join(rootDir, "node_modules", "@ffmpeg", "ffmpeg", "dist", "esm");
 const targetDir = path.join(rootDir, "public", "ffmpeg");
 
-const files = [
-  "ffmpeg-core.js",
-  "ffmpeg-core.wasm"
-];
+const coreFiles = ["ffmpeg-core.js", "ffmpeg-core.wasm"];
 
-if (!fs.existsSync(sourceDir)) {
-  console.warn(`[ffmpeg] Source dir not found: ${sourceDir}`);
+if (!fs.existsSync(coreDir)) {
+  console.warn(`[ffmpeg] Core dir not found: ${coreDir}`);
   process.exit(0);
 }
 
 fs.mkdirSync(targetDir, { recursive: true });
 
-for (const file of files) {
-  const src = path.join(sourceDir, file);
+for (const file of coreFiles) {
+  const src = path.join(coreDir, file);
   const dest = path.join(targetDir, file);
   if (fs.existsSync(src)) {
     fs.copyFileSync(src, dest);
   } else {
     console.warn(`[ffmpeg] Missing file: ${src}`);
   }
+}
+
+const workerSrc = path.join(workerDir, "worker.js");
+const workerDest = path.join(targetDir, "ffmpeg-worker.js");
+if (fs.existsSync(workerSrc)) {
+  fs.copyFileSync(workerSrc, workerDest);
+} else {
+  console.warn(`[ffmpeg] Missing worker file: ${workerSrc}`);
 }
 
 console.log("[ffmpeg] Core files copied to public/ffmpeg");

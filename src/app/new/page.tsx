@@ -209,11 +209,11 @@ export default function NewEnergyPage() {
     if (ffmpegRef.current) return ffmpegRef.current;
     const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpegClient();
-    const coreURL = new URL("@ffmpeg/core/dist/esm/ffmpeg-core.js", import.meta.url);
-    const wasmURL = new URL("@ffmpeg/core/dist/esm/ffmpeg-core.wasm", import.meta.url);
+    const baseURL = typeof window !== "undefined" ? window.location.origin : "";
     await ffmpeg.load({
-      coreURL: coreURL.toString(),
-      wasmURL: wasmURL.toString()
+      coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
+      wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`,
+      classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js`
     });
     ffmpeg.on("log", ({ message }) => {
       ffmpegLogRef.current = message;
