@@ -210,11 +210,25 @@ export default function NewEnergyPage() {
     const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpegClient();
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
-    await ffmpeg.load({
-      coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
-      wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`,
-      classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js`
-    });
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+      let timer: number | undefined;
+      try {
+        return await new Promise<T>((resolve, reject) => {
+          timer = window.setTimeout(() => reject(new Error("timeout")), ms);
+          promise.then(resolve).catch(reject);
+        });
+      } finally {
+        if (timer) window.clearTimeout(timer);
+      }
+    };
+    await withTimeout(
+      ffmpeg.load({
+        coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
+        wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`,
+        classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js`
+      }),
+      15000
+    );
     ffmpeg.on("log", ({ message }) => {
       ffmpegLogRef.current = message;
     });
@@ -248,7 +262,7 @@ export default function NewEnergyPage() {
     }
 
     try {
-      await ffmpeg.exec([
+    const execPromise = ffmpeg.exec([
       "-i",
       inputName,
       "-vf",
@@ -274,7 +288,11 @@ export default function NewEnergyPage() {
       "-movflags",
       "+faststart",
       outputName
-      ]);
+      ], 20000, { signal });
+    const execResult = await execPromise;
+    if (execResult !== 0) {
+      throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
+    }
     } catch (error) {
       ffmpeg.deleteFile(inputName);
       ffmpeg.deleteFile(outputName);
