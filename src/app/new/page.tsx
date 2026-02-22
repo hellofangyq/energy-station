@@ -260,16 +260,9 @@ export default function NewEnergyPage() {
       if (event.data.size > 0) chunks.push(event.data);
     };
 
-    const done = new Promise<Blob>((resolve, reject) => {
+    const done = new Promise<Blob>((resolve) => {
       recorder.onstop = () => resolve(new Blob(chunks, { type: mp4Type }));
-      recorder.onerror = (event) => {
-        const error = (event as unknown as { error?: Error }).error;
-        if (error?.name === "InvalidStateError") {
-          resolve(new Blob(chunks, { type: mp4Type }));
-          return;
-        }
-        reject(new Error(lang === "en" ? "Compression failed" : "压缩失败"));
-      };
+      recorder.onerror = () => resolve(new Blob(chunks, { type: mp4Type }));
     });
 
     let cancelled = false;
@@ -314,6 +307,10 @@ export default function NewEnergyPage() {
 
     if (signal?.aborted || cancelled) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
+
+    if (blob.size === 0) {
+      throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
     }
 
     if (blob.size >= file.size * 0.95) {
