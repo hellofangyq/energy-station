@@ -17,6 +17,9 @@ type Member = {
   avatarUrl: string | null;
   createdAt: string;
   userId: string;
+  linkedUserId?: string | null;
+  inviteToken?: string | null;
+  inviteExpiresAt?: string | null;
 };
 
 type NoteApi = {
@@ -125,7 +128,12 @@ export default function TimelinePage() {
         member: {
           ...note.member,
           avatarUrl: note.member.avatarUrl ?? null,
-          createdAt: new Date(note.member.createdAt)
+          createdAt: new Date(note.member.createdAt),
+          linkedUserId: note.member.linkedUserId ?? null,
+          inviteToken: note.member.inviteToken ?? null,
+          inviteExpiresAt: note.member.inviteExpiresAt
+            ? new Date(note.member.inviteExpiresAt)
+            : null
         },
         sender: {
           ...note.sender,
