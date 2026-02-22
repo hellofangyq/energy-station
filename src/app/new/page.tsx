@@ -343,9 +343,11 @@ export default function NewEnergyPage() {
           setStatus(null);
           return;
         }
-        setCompressError(
-          error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败")
-        );
+        const message =
+          error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败");
+        setCompressError(message);
+        setStatus(message);
+        return;
       } finally {
         setCompressing(false);
       }
