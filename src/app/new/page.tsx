@@ -265,7 +265,9 @@ export default function NewEnergyPage() {
       recorder.onerror = () => reject(new Error(lang === "en" ? "Compression failed" : "压缩失败"));
     });
 
+    let cancelled = false;
     const abortHandler = () => {
+      cancelled = true;
       try {
         recorder.stop();
       } catch {
@@ -295,13 +297,15 @@ export default function NewEnergyPage() {
       video.onended = () => resolve();
     });
     recorder.stop();
-    const blob = await done;
+    const blob = cancelled
+      ? new Blob([], { type: mp4Type })
+      : await done;
     URL.revokeObjectURL(url);
     video.src = "";
     canvasStream.getTracks().forEach((track) => track.stop());
     signal?.removeEventListener("abort", abortHandler);
 
-    if (signal?.aborted) {
+    if (signal?.aborted || cancelled) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
