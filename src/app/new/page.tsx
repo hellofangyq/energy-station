@@ -7,7 +7,6 @@ import { useSessionUser } from "@/components/useSessionUser";
 import { useT } from "@/components/LanguageProvider";
 import { translateError } from "@/lib/error-map";
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 export default function NewEnergyPage() {
   const { t, lang } = useT();
@@ -212,8 +211,8 @@ export default function NewEnergyPage() {
     const ffmpeg = new FFmpegClient();
     const baseURL = "/ffmpeg";
     await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm")
+      coreURL: `${baseURL}/ffmpeg-core.js`,
+      wasmURL: `${baseURL}/ffmpeg-core.wasm`
     });
     ffmpeg.on("log", ({ message }) => {
       ffmpegLogRef.current = message;
@@ -239,7 +238,8 @@ export default function NewEnergyPage() {
     const inputName = `input-${Date.now()}`;
     const outputName = `output-${Date.now()}.mp4`;
 
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    const buffer = await file.arrayBuffer();
+    await ffmpeg.writeFile(inputName, new Uint8Array(buffer));
 
     if (signal?.aborted) {
       ffmpeg.deleteFile(inputName);
