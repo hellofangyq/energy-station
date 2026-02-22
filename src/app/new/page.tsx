@@ -262,7 +262,14 @@ export default function NewEnergyPage() {
 
     const done = new Promise<Blob>((resolve, reject) => {
       recorder.onstop = () => resolve(new Blob(chunks, { type: mp4Type }));
-      recorder.onerror = () => reject(new Error(lang === "en" ? "Compression failed" : "压缩失败"));
+      recorder.onerror = (event) => {
+        const error = (event as unknown as { error?: Error }).error;
+        if (error?.name === "InvalidStateError") {
+          resolve(new Blob(chunks, { type: mp4Type }));
+          return;
+        }
+        reject(new Error(lang === "en" ? "Compression failed" : "压缩失败"));
+      };
     });
 
     let cancelled = false;
