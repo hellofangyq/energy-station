@@ -35,14 +35,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "无权操作该纸条" }, { status: 403 });
   }
 
-  const note = await prisma.note.update({
-    where: { id },
-    data: {
-      status: status === "REJECTED" ? "REJECTED" : "ACCEPTED",
-      rejectedAt: status === "REJECTED" ? new Date() : null
-    }
-  });
-
   if (status === "REJECTED") {
     await prisma.notification.create({
       data: {
@@ -59,7 +51,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       memberName: existing.member.name,
       noteTitle: existing.title
     });
+    await prisma.note.delete({ where: { id } });
+    return NextResponse.json({ ok: true, deleted: true });
   }
+
+  const note = await prisma.note.update({
+    where: { id },
+    data: {
+      status: "ACCEPTED",
+      rejectedAt: null
+    }
+  });
 
   return NextResponse.json({ note });
 }

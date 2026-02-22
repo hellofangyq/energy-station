@@ -82,9 +82,10 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
       });
       if (!response.ok) return;
 
+      setItems((prev) => prev.filter((item) => item.id !== note.id));
       setSelected((prev) => {
         if (!prev || prev.id !== note.id) return prev;
-        return { ...prev, status: "REJECTED", statusLabel: t.status.rejected };
+        return null;
       });
     } finally {
       setBusy(false);
