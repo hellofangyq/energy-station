@@ -361,9 +361,12 @@ input.date-input {
 
 @media (max-width: 640px) {
   .inbox-panel {
+    position: fixed;
     left: 12px;
     right: 12px;
     width: auto;
+    margin-top: 0;
+    top: 72px;
     transform: none;
   }
 }
