@@ -31,6 +31,7 @@ export default function NewEnergyPage() {
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
+  const activeSessionRef = useRef(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -239,12 +240,16 @@ export default function NewEnergyPage() {
       }),
       30000
     );
+    if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
+      ffmpeg.terminate();
+      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
+    }
     ffmpeg.on("log", ({ message }) => {
       ffmpegLogRef.current = message;
     });
     ffmpeg.on("progress", ({ progress }) => {
       const pct = Math.round(progress * 100);
-      if (compressSessionRef.current > 0) {
+      if (compressSessionRef.current > 0 && activeSessionRef.current === compressSessionRef.current) {
         setCompressProgress(pct);
       }
     });
@@ -350,6 +355,7 @@ export default function NewEnergyPage() {
     compressAbortRef.current?.abort();
     compressSessionRef.current += 1;
     const sessionId = compressSessionRef.current;
+    activeSessionRef.current = sessionId;
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
@@ -392,12 +398,14 @@ export default function NewEnergyPage() {
         if (cancelSendRef.current || controller.signal.aborted || sessionId !== compressSessionRef.current) {
           setCompressing(false);
           setStatus(null);
+          activeSessionRef.current = 0;
           return;
         }
         formData.set("media", compressed);
       } catch (error) {
         if (cancelSendRef.current || sessionId !== compressSessionRef.current) {
           setStatus(null);
+          activeSessionRef.current = 0;
           return;
         }
         const message =
@@ -607,6 +615,11 @@ export default function NewEnergyPage() {
                 compressAbortRef.current?.abort();
                 cancelSendRef.current = true;
                 compressSessionRef.current += 1;
+                activeSessionRef.current = 0;
+                if (ffmpegRef.current) {
+                  ffmpegRef.current.terminate();
+                  ffmpegRef.current = null;
+                }
                 setCancelSend(true);
                 setCompressProgress(null);
                 setCompressing(false);
