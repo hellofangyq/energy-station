@@ -209,7 +209,10 @@ export default function NewEnergyPage() {
     if (ffmpegRef.current) return ffmpegRef.current;
     const { FFmpeg: FFmpegClient } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpegClient();
-    const baseURL = "/ffmpeg";
+    const baseURL =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/ffmpeg`
+        : "/ffmpeg";
     await ffmpeg.load({
       coreURL: `${baseURL}/ffmpeg-core.js`,
       wasmURL: `${baseURL}/ffmpeg-core.wasm`
