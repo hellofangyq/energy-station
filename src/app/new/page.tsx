@@ -29,6 +29,7 @@ export default function NewEnergyPage() {
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
   const ffmpegRef = useRef<FFmpeg | null>(null);
+  const currentFfmpegRef = useRef<FFmpeg | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
   const activeSessionRef = useRef(0);
@@ -209,7 +210,6 @@ export default function NewEnergyPage() {
   };
 
   const loadFFmpeg = async () => {
-    if (ffmpegRef.current) return ffmpegRef.current;
     if (compressAbortRef.current?.signal.aborted || cancelSendRef.current) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
@@ -249,11 +249,15 @@ export default function NewEnergyPage() {
     });
     ffmpeg.on("progress", ({ progress }) => {
       const pct = Math.round(progress * 100);
-      if (compressSessionRef.current > 0 && activeSessionRef.current === compressSessionRef.current) {
+      if (
+        compressSessionRef.current > 0 &&
+        activeSessionRef.current === compressSessionRef.current &&
+        currentFfmpegRef.current === ffmpeg
+      ) {
         setCompressProgress(pct);
       }
     });
-    ffmpegRef.current = ffmpeg;
+    currentFfmpegRef.current = ffmpeg;
     return ffmpeg;
   };
 
@@ -322,6 +326,10 @@ export default function NewEnergyPage() {
   } catch (error) {
     ffmpeg.deleteFile(inputName);
     ffmpeg.deleteFile(outputName);
+    if (currentFfmpegRef.current === ffmpeg) {
+      currentFfmpegRef.current = null;
+    }
+    ffmpeg.terminate();
     const raw = error instanceof Error ? error.message : "";
     if (raw.includes("Aborted()") || raw.includes("timeout")) {
       throw new Error(
@@ -337,12 +345,20 @@ export default function NewEnergyPage() {
     if (signal?.aborted) {
       ffmpeg.deleteFile(inputName);
       ffmpeg.deleteFile(outputName);
+      if (currentFfmpegRef.current === ffmpeg) {
+        currentFfmpegRef.current = null;
+      }
+      ffmpeg.terminate();
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
     const data = await ffmpeg.readFile(outputName);
     ffmpeg.deleteFile(inputName);
     ffmpeg.deleteFile(outputName);
+    if (currentFfmpegRef.current === ffmpeg) {
+      currentFfmpegRef.current = null;
+    }
+    ffmpeg.terminate();
 
     const blob = new Blob([data], { type: "video/mp4" });
     if (blob.size === 0) {
@@ -625,9 +641,9 @@ export default function NewEnergyPage() {
                 cancelSendRef.current = true;
                 compressSessionRef.current += 1;
                 activeSessionRef.current = 0;
-                if (ffmpegRef.current) {
-                  ffmpegRef.current.terminate();
-                  ffmpegRef.current = null;
+                if (currentFfmpegRef.current) {
+                  currentFfmpegRef.current.terminate();
+                  currentFfmpegRef.current = null;
                 }
                 setCancelSend(true);
                 setCompressProgress(null);
