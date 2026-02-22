@@ -30,6 +30,7 @@ export default function NewEnergyPage() {
   const cancelSendRef = useRef(false);
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
+  const compressSessionRef = useRef(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -243,7 +244,9 @@ export default function NewEnergyPage() {
     });
     ffmpeg.on("progress", ({ progress }) => {
       const pct = Math.round(progress * 100);
-      setCompressProgress(pct);
+      if (compressSessionRef.current > 0) {
+        setCompressProgress(pct);
+      }
     });
     ffmpegRef.current = ffmpeg;
     return ffmpeg;
@@ -345,6 +348,8 @@ export default function NewEnergyPage() {
     setCancelSend(false);
     cancelSendRef.current = false;
     compressAbortRef.current?.abort();
+    compressSessionRef.current += 1;
+    const sessionId = compressSessionRef.current;
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
@@ -384,14 +389,14 @@ export default function NewEnergyPage() {
         const controller = new AbortController();
         compressAbortRef.current = controller;
         const compressed = await compressVideo(media, controller.signal);
-        if (cancelSendRef.current || controller.signal.aborted) {
+        if (cancelSendRef.current || controller.signal.aborted || sessionId !== compressSessionRef.current) {
           setCompressing(false);
           setStatus(null);
           return;
         }
         formData.set("media", compressed);
       } catch (error) {
-        if (cancelSendRef.current) {
+        if (cancelSendRef.current || sessionId !== compressSessionRef.current) {
           setStatus(null);
           return;
         }
@@ -601,6 +606,7 @@ export default function NewEnergyPage() {
               onClick={() => {
                 compressAbortRef.current?.abort();
                 cancelSendRef.current = true;
+                compressSessionRef.current += 1;
                 setCancelSend(true);
                 setCompressProgress(null);
                 setCompressing(false);
