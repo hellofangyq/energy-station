@@ -24,6 +24,7 @@ export default function NewEnergyPage() {
   const [recordDuration, setRecordDuration] = useState<number | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
+  const [compressProgress, setCompressProgress] = useState<number | null>(null);
   const [cancelSend, setCancelSend] = useState(false);
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
@@ -234,7 +235,7 @@ export default function NewEnergyPage() {
     });
     ffmpeg.on("progress", ({ progress }) => {
       const pct = Math.round(progress * 100);
-      setStatus(lang === "en" ? `Compressing… ${pct}%` : `正在压缩… ${pct}%`);
+      setCompressProgress(pct);
     });
     ffmpegRef.current = ffmpeg;
     return ffmpeg;
@@ -332,6 +333,7 @@ export default function NewEnergyPage() {
     event.preventDefault();
     setStatus(t.common.loading);
     setCompressError(null);
+    setCompressProgress(null);
     setCancelSend(false);
     cancelSendRef.current = false;
     compressAbortRef.current?.abort();
@@ -387,7 +389,6 @@ export default function NewEnergyPage() {
         }
         const message =
           error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败");
-        console.error("Video compression failed:", error);
         setCompressError(message);
         setStatus(message);
         return;
@@ -449,11 +450,6 @@ export default function NewEnergyPage() {
       </header>
 
       <form ref={formRef} onSubmit={onSubmit} className="gradient-panel rounded-xxl p-6 shadow-soft space-y-5">
-        {compressError && !compressing && (
-          <div className="rounded-xl border border-ember/40 bg-white/70 px-4 py-3 text-xs text-ember">
-            {compressError}
-          </div>
-        )}
         <div>
           <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.sendTo}</label>
           {loadingMembers ? (
@@ -587,7 +583,10 @@ export default function NewEnergyPage() {
       {compressing && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-soft">
-            <p className="text-sm text-ink/80">{lang === "en" ? "Compressing video…" : "正在压缩视频……"}</p>
+            <p className="text-sm text-ink/80">
+              {lang === "en" ? "Compressing video…" : "正在压缩视频……"}
+              {compressProgress !== null ? ` ${compressProgress}%` : ""}
+            </p>
             <button
               type="button"
               className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
@@ -597,6 +596,7 @@ export default function NewEnergyPage() {
                 ffmpegRef.current = null;
                 cancelSendRef.current = true;
                 setCancelSend(true);
+                setCompressProgress(null);
                 setCompressing(false);
                 setStatus(null);
               }}
