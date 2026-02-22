@@ -227,7 +227,7 @@ export default function NewEnergyPage() {
         wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`,
         classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js`
       }),
-      15000
+      30000
     );
     ffmpeg.on("log", ({ message }) => {
       ffmpegLogRef.current = message;
@@ -288,19 +288,25 @@ export default function NewEnergyPage() {
       "-movflags",
       "+faststart",
       outputName
-      ], 20000, { signal });
+      ], 60000, { signal });
     const execResult = await execPromise;
     if (execResult !== 0) {
       throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
     }
-    } catch (error) {
-      ffmpeg.deleteFile(inputName);
-      ffmpeg.deleteFile(outputName);
-      const hint = ffmpegLogRef.current ? ` (${ffmpegLogRef.current})` : "";
+  } catch (error) {
+    ffmpeg.deleteFile(inputName);
+    ffmpeg.deleteFile(outputName);
+    const raw = error instanceof Error ? error.message : "";
+    if (raw.includes("Aborted()") || raw.includes("timeout")) {
       throw new Error(
-        lang === "en" ? `Compression failed${hint}` : `压缩失败${hint}`
+        lang === "en"
+          ? "Compression timed out. Try again or use a smaller video."
+          : "压缩超时，请重试或使用更小的视频。"
       );
     }
+    const hint = ffmpegLogRef.current ? ` (${ffmpegLogRef.current})` : "";
+    throw new Error(lang === "en" ? `Compression failed${hint}` : `压缩失败${hint}`);
+  }
 
     if (signal?.aborted) {
       ffmpeg.deleteFile(inputName);
