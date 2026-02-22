@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default function InvitePage({ params }: { params: { token: string } }) {
-  redirect(`/signup?invite=${params.token}`);
+export default async function InvitePage({
+  params
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  redirect(`/signup?invite=${token}`);
 }
