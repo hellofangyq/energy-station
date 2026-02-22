@@ -362,6 +362,7 @@ export default function NewEnergyPage() {
         }
         const message =
           error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败");
+        console.error("Video compression failed:", error);
         setCompressError(message);
         setStatus(message);
         return;
@@ -423,6 +424,11 @@ export default function NewEnergyPage() {
       </header>
 
       <form ref={formRef} onSubmit={onSubmit} className="gradient-panel rounded-xxl p-6 shadow-soft space-y-5">
+        {compressError && !compressing && (
+          <div className="rounded-xl border border-ember/40 bg-white/70 px-4 py-3 text-xs text-ember">
+            {compressError}
+          </div>
+        )}
         <div>
           <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.sendTo}</label>
           {loadingMembers ? (
