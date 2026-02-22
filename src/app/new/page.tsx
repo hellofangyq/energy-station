@@ -29,6 +29,7 @@ export default function NewEnergyPage() {
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
   const ffmpegRef = useRef<FFmpeg | null>(null);
+  const ffmpegLogRef = useRef<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -214,6 +215,13 @@ export default function NewEnergyPage() {
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm")
     });
+    ffmpeg.on("log", ({ message }) => {
+      ffmpegLogRef.current = message;
+    });
+    ffmpeg.on("progress", ({ progress }) => {
+      const pct = Math.round(progress * 100);
+      setStatus(lang === "en" ? `Compressing… ${pct}%` : `正在压缩… ${pct}%`);
+    });
     ffmpegRef.current = ffmpeg;
     return ffmpeg;
   };
@@ -238,7 +246,8 @@ export default function NewEnergyPage() {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
-    await ffmpeg.exec([
+    try {
+      await ffmpeg.exec([
       "-i",
       inputName,
       "-vf",
@@ -264,7 +273,15 @@ export default function NewEnergyPage() {
       "-movflags",
       "+faststart",
       outputName
-    ]);
+      ]);
+    } catch (error) {
+      ffmpeg.deleteFile(inputName);
+      ffmpeg.deleteFile(outputName);
+      const hint = ffmpegLogRef.current ? ` (${ffmpegLogRef.current})` : "";
+      throw new Error(
+        lang === "en" ? `Compression failed${hint}` : `压缩失败${hint}`
+      );
+    }
 
     if (signal?.aborted) {
       ffmpeg.deleteFile(inputName);
