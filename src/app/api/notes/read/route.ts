@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
+import { getFamilyContext } from "@/lib/family";
 
 export async function PATCH(req: Request) {
   const userId = await getSessionUserId();
   if (!userId) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+  const context = await getFamilyContext(userId);
+  if (!context) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
@@ -15,7 +20,10 @@ export async function PATCH(req: Request) {
   }
 
   const ownedNotes = await prisma.note.findMany({
-    where: { id: { in: ids }, member: { userId } },
+    where:
+      context.role === "MEMBER" && context.linkedMemberId
+        ? { id: { in: ids }, memberId: context.linkedMemberId }
+        : { id: { in: ids }, member: { userId: context.ownerId } },
     select: { id: true }
   });
 

@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
+import { getFamilyContext } from "@/lib/family";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  const context = await getFamilyContext(userId);
+  if (!context || context.role !== "OWNER") {
+    return NextResponse.json({ error: "无权操作" }, { status: 403 });
+  }
 
   const { id } = await params;
   const member = await prisma.member.findFirst({
-    where: { id, userId }
+    where: { id, userId: context.ownerId }
   });
 
   if (!member) {
@@ -25,6 +30,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  const context = await getFamilyContext(userId);
+  if (!context || context.role !== "OWNER") {
+    return NextResponse.json({ error: "无权操作" }, { status: 403 });
+  }
 
   const { id } = await params;
   const body = await req.json();
@@ -34,7 +43,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const member = await prisma.member.findFirst({
-    where: { id, userId }
+    where: { id, userId: context.ownerId }
   });
   if (!member) {
     return NextResponse.json({ error: "成员不存在" }, { status: 404 });
@@ -53,10 +62,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  const context = await getFamilyContext(userId);
+  if (!context || context.role !== "OWNER") {
+    return NextResponse.json({ error: "无权操作" }, { status: 403 });
+  }
 
   const { id } = await params;
   const member = await prisma.member.findFirst({
-    where: { id, userId }
+    where: { id, userId: context.ownerId }
   });
   if (!member) {
     return NextResponse.json({ error: "成员不存在" }, { status: 404 });

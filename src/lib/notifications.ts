@@ -10,13 +10,13 @@ export type NotificationPreview = {
   read: boolean;
 };
 
-export function toNotificationPreview(notification: Notification): NotificationPreview {
+export function toNotificationPreview(notification: Notification, lang: "zh" | "en" = "zh"): NotificationPreview {
   return {
     id: notification.id,
     memberId: notification.memberId ?? null,
     title: notification.title,
     content: notification.content,
-    createdAtLabel: formatDateTime(notification.createdAt),
+    createdAtLabel: formatDateTime(notification.createdAt, lang),
     read: notification.read
   };
 }

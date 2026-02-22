@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 import { sendRejectionEmail } from "@/lib/mailer";
+import { getFamilyContext } from "@/lib/family";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId();
   if (!userId) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+  const context = await getFamilyContext(userId);
+  if (!context) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
@@ -21,7 +26,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     include: { member: true, sender: true }
   });
 
-  if (!existing || existing.member.userId !== userId) {
+  const canAccess =
+    existing &&
+    (context.role === "OWNER"
+      ? existing.member.userId === context.ownerId
+      : existing.member.linkedUserId === userId);
+  if (!canAccess) {
     return NextResponse.json({ error: "无权操作该纸条" }, { status: 403 });
   }
 
@@ -59,6 +69,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  const context = await getFamilyContext(userId);
+  if (!context) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
 
   const { id } = await params;
   const existing = await prisma.note.findUnique({
@@ -66,7 +80,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     include: { member: true }
   });
 
-  if (!existing || existing.member.userId !== userId) {
+  const canAccess =
+    existing &&
+    (context.role === "OWNER"
+      ? existing.member.userId === context.ownerId
+      : existing.member.linkedUserId === userId);
+  if (!canAccess) {
     return NextResponse.json({ error: "无权操作该纸条" }, { status: 403 });
   }
 

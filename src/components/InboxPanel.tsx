@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { NotePreview } from "@/lib/types";
 import type { NotificationPreview } from "@/lib/notifications";
+import { useSessionUser } from "@/components/useSessionUser";
+import { useT } from "@/components/LanguageProvider";
 
 type Props = {
   todayNotes: NotePreview[];
@@ -10,6 +12,8 @@ type Props = {
 };
 
 export default function InboxPanel({ todayNotes, notifications }: Props) {
+  const { t, lang } = useT();
+  const { user } = useSessionUser();
   const [items, setItems] = useState<NotePreview[]>(todayNotes);
   const [selected, setSelected] = useState<NotePreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,7 +84,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
 
       setSelected((prev) => {
         if (!prev || prev.id !== note.id) return prev;
-        return { ...prev, statusLabel: "已拒收" };
+        return { ...prev, status: "REJECTED", statusLabel: t.status.rejected };
       });
     } finally {
       setBusy(false);
@@ -103,21 +107,21 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
       >
         <summary className="inbox-button list-none">
           <span className="inbox-envelope" aria-hidden="true" />
-          <span className="text-xs font-semibold tracking-[0.2em] text-ember">消息</span>
+          <span className="text-xs font-semibold tracking-[0.2em] text-ember">{t.inbox.title}</span>
           {unreadCount > 0 && <span className="inbox-badge">{unreadCount}</span>}
         </summary>
         <div className="inbox-panel" onClick={(event) => event.stopPropagation()}>
           <div className="inbox-section">
             <div className="inbox-row">
-              <div className="inbox-title">今日收到的能量</div>
+              <div className="inbox-title">{t.inbox.today}</div>
             {hasItems && (
               <button type="button" className="inbox-clear" onClick={clearItems}>
-                清空消息
+                {t.inbox.clear}
               </button>
             )}
           </div>
           {items.length === 0 ? (
-            <p className="text-xs text-ink/60">今天还没有新的能量纸条。</p>
+            <p className="text-xs text-ink/60">{t.inbox.empty}</p>
           ) : (
             <div className="space-y-3">
               {items.map((note) => (
@@ -128,7 +132,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
                   onClick={() => openNote(note)}
                 >
                   <div className="flex items-center justify-between text-xs text-ink/60">
-                    <span>{note.memberName}</span>
+                    <span>{user?.role === "MEMBER" ? user.name : note.memberName}</span>
                     <span>{note.createdAtLabel}</span>
                   </div>
                   <div className="mt-2 text-sm text-ink/80">{note.title}</div>
@@ -141,10 +145,10 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
 
         {selected && (
           <div className="inbox-section">
-            <div className="inbox-title">当前消息</div>
+            <div className="inbox-title">{t.inbox.current}</div>
             <div className="rounded-2xl bg-white/80 px-4 py-4 text-sm text-ink/80">
               <div className="flex items-center justify-between text-xs text-ink/60">
-                <span>{selected.memberName}</span>
+                <span>{user?.role === "MEMBER" ? user.name : selected.memberName}</span>
                 <span>{selected.createdAtLabel}</span>
               </div>
               <div className="mt-2 text-base font-semibold text-ink">{selected.title}</div>
@@ -153,7 +157,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
               {selected.mediaUrl && selected.mediaType === "image" && (
                 <img
                   src={selected.mediaUrl}
-                  alt="能量图片"
+                  alt={lang === "en" ? "Energy image" : "能量图片"}
                   className="mt-3 h-40 w-full rounded-xl object-cover"
                 />
               )}
@@ -165,19 +169,26 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
               )}
 
               <div className="mt-4 flex items-center justify-between text-xs text-ink/60">
-                <span>来自 {selected.senderName}</span>
-                <span>状态 {selected.statusLabel}</span>
+                <span>{t.common.from} {selected.senderName}</span>
+                <span>
+                  {lang === "en" ? "Status" : "状态"}{" "}
+                  {selected.status === "ACCEPTED"
+                    ? t.status.accepted
+                    : selected.status === "REJECTED"
+                    ? t.status.rejected
+                    : t.status.pending}
+                </span>
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2">
-                {selected.statusLabel !== "已拒收" && (
+                {selected.status !== "REJECTED" && (
                   <button
                     type="button"
                     className="rounded-full border border-ember/50 px-4 py-2 text-xs font-semibold text-ember"
                     onClick={() => rejectNote(selected)}
                     disabled={busy}
                   >
-                    拒收
+                    {t.inbox.rejectAction}
                   </button>
                 )}
               </div>
@@ -187,7 +198,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
 
         {groupedNotifications.length > 0 && (
           <div className="inbox-section">
-            <div className="inbox-title">拒收消息</div>
+            <div className="inbox-title">{t.inbox.rejected}</div>
             <div className="space-y-3">
               {groupedNotifications.map((notice) => (
                 <div key={notice.id} className="rounded-xl bg-white/70 px-4 py-3">

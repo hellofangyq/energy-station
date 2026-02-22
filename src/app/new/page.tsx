@@ -3,21 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import MemberTabs from "@/components/MemberTabs";
 import { useActiveMember } from "@/components/useActiveMember";
-
-const typeOptions = [
-  { value: "text", label: "文字" },
-  { value: "image", label: "图片" },
-  { value: "audio", label: "语音 <1分钟" },
-  { value: "video", label: "视频 <15秒" }
-];
+import { useSessionUser } from "@/components/useSessionUser";
+import { useT } from "@/components/LanguageProvider";
+import { translateError } from "@/lib/error-map";
 
 export default function NewEnergyPage() {
+  const { t, lang } = useT();
   const [status, setStatus] = useState<string | null>(null);
   const [members, setMembers] = useState<{ id: string; name: string; role: "SELF" | "CHILD" }[]>([]);
   const [selectedType, setSelectedType] = useState("text");
   const [fileError, setFileError] = useState<string | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [memberErrorCode, setMemberErrorCode] = useState<"UNAUTHORIZED" | "FAILED" | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -31,21 +29,23 @@ export default function NewEnergyPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/members")
+    fetch("/api/members?scope=family")
       .then(async (res) => {
         if (!res.ok) {
-          if (res.status === 401) throw new Error("请先登录");
-          throw new Error("加载失败");
+          if (res.status === 401) throw new Error("UNAUTHORIZED");
+          throw new Error("FAILED");
         }
         return res.json();
       })
       .then((data) => {
         if (active) setMembers(data.members ?? []);
       })
-      .catch(() => {
+      .catch((err) => {
         if (active) {
           setMembers([]);
-          setMemberError("无法加载成员，请先登录或稍后再试。");
+          const code = err instanceof Error ? err.message : "FAILED";
+          setMemberErrorCode(code === "UNAUTHORIZED" ? "UNAUTHORIZED" : "FAILED");
+          setMemberError(code === "UNAUTHORIZED" ? t.common.loginFirst : t.new.memberError);
         }
       })
       .finally(() => {
@@ -70,7 +70,17 @@ export default function NewEnergyPage() {
     return [];
   }, [members]);
 
-  const { activeId, setActiveId, activeMember } = useActiveMember(currentMembers);
+  const { user } = useSessionUser();
+  const displayMembers = useMemo(() => {
+    if (user?.role === "MEMBER" && user.linkedMemberId) {
+      return currentMembers.map((member) =>
+        member.id === user.linkedMemberId ? { ...member, name: user.name } : member
+      );
+    }
+    return currentMembers;
+  }, [currentMembers, user]);
+  const { activeId, setActiveId, activeMember } = useActiveMember(displayMembers);
+  const needsLogin = !loadingMembers && memberErrorCode === "UNAUTHORIZED";
 
   const getMediaDuration = (file: File) => {
     return new Promise<number>((resolve, reject) => {
@@ -86,7 +96,7 @@ export default function NewEnergyPage() {
       };
       media.onerror = () => {
         URL.revokeObjectURL(url);
-        reject(new Error("无法读取媒体时长"));
+        reject(new Error(lang === "en" ? "Cannot read media duration" : "无法读取媒体时长"));
       };
     });
   };
@@ -103,7 +113,7 @@ export default function NewEnergyPage() {
     }
 
     if (selectedType === "text") {
-      setFileError("文字类型不需要上传媒体");
+      setFileError(lang === "en" ? "Text type does not need media" : "文字类型不需要上传媒体");
       return false;
     }
 
@@ -113,7 +123,7 @@ export default function NewEnergyPage() {
       (selectedType === "video" && file.type.startsWith("video/"));
 
     if (!match) {
-      setFileError("媒体类型与选择的能量类型不匹配");
+      setFileError(lang === "en" ? "Media type does not match" : "媒体类型与选择的能量类型不匹配");
       return false;
     }
 
@@ -124,13 +134,13 @@ export default function NewEnergyPage() {
         if (duration > limit) {
           setFileError(
             selectedType === "audio"
-              ? "语音时长不能超过 60 秒"
-              : "视频时长不能超过 15 秒"
+              ? (lang === "en" ? "Audio must be under 60 seconds" : "语音时长不能超过 60 秒")
+              : (lang === "en" ? "Video must be under 15 seconds" : "视频时长不能超过 15 秒")
           );
           return false;
         }
       } catch (error) {
-        setFileError("无法读取媒体时长");
+        setFileError(lang === "en" ? "Cannot read media duration" : "无法读取媒体时长");
         return false;
       }
     }
@@ -168,7 +178,7 @@ export default function NewEnergyPage() {
         stopRecording();
       }, 60000);
     } catch (error) {
-      setRecordError("无法获取麦克风权限");
+      setRecordError(lang === "en" ? "Microphone permission denied" : "无法获取麦克风权限");
     }
   };
 
@@ -189,24 +199,24 @@ export default function NewEnergyPage() {
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus("正在发送...");
+    setStatus(t.common.loading);
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
     const media = formData.get("media") as File | null;
 
     if (!memberId) {
-      setStatus("请选择接收对象");
+      setStatus(lang === "en" ? "Please select a recipient" : "请选择接收对象");
       return;
     }
 
     if (selectedType !== "text" && (!media || media.size === 0) && !recordedBlob) {
-      setStatus("请选择对应的媒体文件");
+      setStatus(lang === "en" ? "Please choose the correct media file" : "请选择对应的媒体文件");
       return;
     }
 
     if (!fileValid) {
-      setStatus("媒体文件不符合要求");
+      setStatus(lang === "en" ? "Invalid media file" : "媒体文件不符合要求");
       return;
     }
 
@@ -216,7 +226,7 @@ export default function NewEnergyPage() {
 
     if (selectedType === "audio" && recordedBlob && (!media || media.size === 0)) {
       if (recordDuration && recordDuration > 60) {
-        setStatus("语音时长不能超过 60 秒");
+        setStatus(lang === "en" ? "Audio must be under 60 seconds" : "语音时长不能超过 60 秒");
         return;
       }
       const recordedFile = new File([recordedBlob], `record-${Date.now()}.webm`, { type: recordedBlob.type });
@@ -231,51 +241,69 @@ export default function NewEnergyPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "发送失败");
+        throw new Error(translateError(data.error, lang) || (lang === "en" ? "Send failed" : "发送失败"));
       }
 
-      setStatus("发送成功，能量已进入瓶中。");
+      setStatus(lang === "en" ? "Sent. The energy is in the bottle." : "发送成功，能量已进入瓶中。");
       formRef.current?.reset();
       resetRecording();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "发送失败，请稍后再试。");
+      setStatus(error instanceof Error ? error.message : (lang === "en" ? "Send failed. Please try again." : "发送失败，请稍后再试。"));
     }
   };
+
+  if (needsLogin) {
+    return (
+      <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
+        {lang === "en" ? (
+          <>
+            Please <a className="text-ember" href="/login">{t.nav.login}</a> to write energy.
+          </>
+        ) : (
+          <>
+            请先 <a className="text-ember" href="/login">{t.nav.login}</a>，再写能量。
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const typeOptions = [
+    { value: "text", label: t.new.text },
+    { value: "image", label: t.new.image },
+    { value: "audio", label: t.new.audio },
+    { value: "video", label: t.new.video }
+  ];
 
   return (
     <div className="max-w-3xl space-y-6">
       <header>
-        <p className="text-xs uppercase tracking-[0.3em] text-leaf">写能量</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-leaf">{t.new.title}</p>
         <h2 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-fraunces)" }}>
-          新建能量纸条
+          {t.new.title}
         </h2>
-        <p className="mt-2 text-sm text-ink/70">记录今天的闪光点，让自己和孩子都被看到。</p>
+        <p className="mt-2 text-sm text-ink/70">{t.new.subtitle}</p>
       </header>
 
       <form ref={formRef} onSubmit={onSubmit} className="gradient-panel rounded-xxl p-6 shadow-soft space-y-5">
         <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">发送给</label>
+          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.sendTo}</label>
           {loadingMembers ? (
-            <p className="mt-2 text-sm text-ink/60">正在加载成员...</p>
+            <p className="mt-2 text-sm text-ink/60">{t.new.loadingMembers}</p>
           ) : memberError ? (
             <p className="mt-2 text-sm text-ember">{memberError}</p>
           ) : currentMembers.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/60">暂无成员，请先在家庭管理中添加。</p>
+            <p className="mt-2 text-sm text-ink/60">{t.new.noMembers}</p>
           ) : (
             <div className="mt-2 space-y-3">
-              <MemberTabs members={currentMembers} activeId={activeId} onChange={setActiveId} />
-              {activeMember && (
-                <div className="text-xs text-ink/60">
-                  当前对象：{activeMember.name}
-                </div>
-              )}
+              <MemberTabs members={displayMembers} activeId={activeId} onChange={setActiveId} />
               <input type="hidden" name="memberId" value={activeId} />
             </div>
           )}
         </div>
 
         <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">能量类型</label>
+          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.type}</label>
           <div className="mt-2 grid gap-2 md:grid-cols-4">
             {typeOptions.map((option) => (
               <label key={option.value} className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/60 px-3 py-2 text-sm">
@@ -296,33 +324,34 @@ export default function NewEnergyPage() {
         </div>
 
         <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">今天的闪光点</label>
+          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.titleLabel}</label>
           <input
             name="title"
-            placeholder="一句话标题，比如：完成作业、练琴 30 分钟"
+            placeholder={t.new.titlePlaceholder}
             required
             className="mt-2 w-full rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm"
           />
           <textarea
             name="text"
             rows={4}
-            placeholder="写下今天完成的事情、感受或鼓励..."
+            placeholder={t.new.textPlaceholder}
             className="mt-2 w-full rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm"
           />
         </div>
 
         <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">日期</label>
+          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.dateLabel}</label>
           <input
             type="date"
             name="eventDate"
             defaultValue={today}
             className="mt-2 w-full max-w-full rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm date-input"
+            lang={lang}
           />
         </div>
 
         <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">添加媒体</label>
+          <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.new.mediaLabel}</label>
           <input
             ref={fileRef}
             type="file"
@@ -339,7 +368,7 @@ export default function NewEnergyPage() {
                     className="rounded-full border border-ember/40 px-3 py-1 text-xs text-ember"
                     onClick={startRecording}
                   >
-                    开始录音
+                    {t.new.recordStart}
                   </button>
                 ) : (
                   <button
@@ -347,7 +376,7 @@ export default function NewEnergyPage() {
                     className="rounded-full bg-ember px-3 py-1 text-xs font-semibold text-white shadow-glow"
                     onClick={stopRecording}
                   >
-                    停止录音
+                    {t.new.recordStop}
                   </button>
                 )}
                 {recordedBlob && (
@@ -356,11 +385,11 @@ export default function NewEnergyPage() {
                     className="rounded-full border border-ember/40 px-3 py-1 text-xs text-ember"
                     onClick={resetRecording}
                   >
-                    重新录音
+                    {t.new.recordRetry}
                   </button>
                 )}
                 {recordDuration !== null && (
-                  <span>时长：{Math.round(recordDuration)} 秒</span>
+                  <span>{t.new.duration}：{Math.round(recordDuration)} 秒</span>
                 )}
               </div>
               {recordedUrl && (
@@ -369,13 +398,13 @@ export default function NewEnergyPage() {
               {recordError && <p className="mt-2 text-xs text-ember">{recordError}</p>}
             </div>
           )}
-          <p className="mt-2 text-xs text-ink/60">支持图片、语音（1 分钟内）和视频（15 秒内）。</p>
+          <p className="mt-2 text-xs text-ink/60">{t.new.mediaHint}</p>
           {fileError && <p className="mt-2 text-xs text-ember">{fileError}</p>}
         </div>
 
         <div className="flex items-center justify-between">
           <button className="rounded-full bg-ember px-5 py-2 text-sm font-semibold text-white shadow-glow">
-            发送能量
+            {t.new.submit}
           </button>
           {status && <span className="text-xs text-ink/70">{status}</span>}
         </div>

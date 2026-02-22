@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
+import { getFamilyContext } from "@/lib/family";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { put } from "@vercel/blob";
@@ -14,9 +15,16 @@ export async function GET() {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
+  const context = await getFamilyContext(userId);
+  if (!context) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+
   const notes = await prisma.note.findMany({
     where: {
-      member: { userId }
+      ...(context.role === "MEMBER" && context.linkedMemberId
+        ? { memberId: context.linkedMemberId }
+        : { member: { userId: context.ownerId } })
     },
     include: {
       member: true,
@@ -25,12 +33,24 @@ export async function GET() {
     orderBy: { createdAt: "desc" }
   });
 
+  if (context.role === "MEMBER" && context.linkedMemberId) {
+    notes.forEach((note) => {
+      if (note.memberId === context.linkedMemberId) {
+        note.member.name = context.userName;
+      }
+    });
+  }
+
   return NextResponse.json({ notes });
 }
 
 export async function POST(req: Request) {
   const userId = await getSessionUserId();
   if (!userId) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+  const context = await getFamilyContext(userId);
+  if (!context) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
@@ -46,7 +66,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "缺少接收人" }, { status: 400 });
   }
 
-  const member = await prisma.member.findFirst({ where: { id: memberId, userId } });
+  const member = await prisma.member.findFirst({
+    where: { id: memberId, userId: context.ownerId }
+  });
   if (!member) {
     return NextResponse.json({ error: "无权操作该成员" }, { status: 403 });
   }

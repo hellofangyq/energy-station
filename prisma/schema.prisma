@@ -32,11 +32,23 @@ enum NoteType {
   video
 }
 
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
   passwordHash String
+  role         UserRole @default(OWNER)
+  linkedMemberId String? @unique
+  linkedMember Member? @relation("LinkedMember")
+  securityQ1   String?
+  securityQ2   String?
+  securityA1Hash String?
+  securityA2Hash String?
   resetTokenHash String?
   resetTokenExpiresAt DateTime?
   createdAt    DateTime @default(now())
@@ -52,8 +64,12 @@ model Member {
   role        MemberRole
   bottleStyle BottleStyle @default(bottle)
   avatarUrl   String?
+  linkedUserId String? @unique
+  inviteToken String? @unique
+  inviteExpiresAt DateTime?
   createdAt   DateTime    @default(now())
   user        User        @relation(fields: [userId], references: [id])
+  linkedUser  User?       @relation("LinkedMember", fields: [linkedUserId], references: [id])
   notes       Note[]
   notifications Notification[]
 }

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import EnergyCard from "@/components/EnergyCard";
 import MemberTabs from "@/components/MemberTabs";
 import { useActiveMember } from "@/components/useActiveMember";
+import { useSessionUser } from "@/components/useSessionUser";
+import { useT } from "@/components/LanguageProvider";
 import { toNotePreview } from "@/lib/notes";
 import type { NotePreview } from "@/lib/types";
 
@@ -43,12 +45,15 @@ type NoteApi = {
 };
 
 export default function TimelinePage() {
+  const { t, lang } = useT();
   const [members, setMembers] = useState<Member[]>([]);
   const [notes, setNotes] = useState<NoteApi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<"UNAUTHORIZED" | "FAILED" | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const { user } = useSessionUser();
 
   useEffect(() => {
     let active = true;
@@ -56,9 +61,9 @@ export default function TimelinePage() {
       .then(async ([membersRes, notesRes]) => {
         if (!membersRes.ok || !notesRes.ok) {
           if (membersRes.status === 401 || notesRes.status === 401) {
-            throw new Error("请先登录");
+            throw new Error("UNAUTHORIZED");
           }
-          throw new Error("加载失败");
+          throw new Error("FAILED");
         }
         const membersData = await membersRes.json();
         const notesData = await notesRes.json();
@@ -68,7 +73,9 @@ export default function TimelinePage() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "加载失败");
+        const code = err instanceof Error ? err.message : "FAILED";
+        setErrorCode(code === "UNAUTHORIZED" ? "UNAUTHORIZED" : "FAILED");
+        setError(code === "UNAUTHORIZED" ? t.common.loginFirst : (lang === "en" ? "Load failed" : "加载失败"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -79,7 +86,16 @@ export default function TimelinePage() {
     };
   }, []);
 
-  const { activeId, setActiveId, activeMember } = useActiveMember(members);
+  const displayMembers = useMemo(() => {
+    if (user?.role === "MEMBER" && user.linkedMemberId) {
+      return members.map((member) =>
+        member.id === user.linkedMemberId ? { ...member, name: user.name } : member
+      );
+    }
+    return members;
+  }, [members, user]);
+
+  const { activeId, setActiveId, activeMember } = useActiveMember(displayMembers);
 
   const previews = useMemo<NotePreview[]>(() => {
     if (!activeMember) return [];
@@ -97,7 +113,8 @@ export default function TimelinePage() {
       return true;
     });
     const mapped = filtered.map((note) =>
-      toNotePreview({
+      toNotePreview(
+        {
         ...note,
         createdAt: new Date(note.createdAt),
         eventDate: new Date(note.eventDate),
@@ -118,7 +135,9 @@ export default function TimelinePage() {
             : null,
           createdAt: new Date(note.sender.createdAt)
         }
-      })
+      },
+      lang
+      )
     );
     return mapped.sort((a, b) => {
       const eventDiff = new Date(b.eventDateISO).getTime() - new Date(a.eventDateISO).getTime();
@@ -167,15 +186,28 @@ export default function TimelinePage() {
   if (loading) {
     return (
       <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
-        正在加载时间轴...
+        {t.timeline.loading}
       </div>
     );
   }
 
   if (error) {
+    const needsLogin = errorCode === "UNAUTHORIZED";
     return (
       <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
-        {error}
+        {needsLogin ? (
+          lang === "en" ? (
+            <>
+              Please <a className="text-ember" href="/login">{t.nav.login}</a> to view the timeline.
+            </>
+          ) : (
+            <>
+              请先 <a className="text-ember" href="/login">{t.nav.login}</a>，再查看时间轴。
+            </>
+          )
+        ) : (
+          error
+        )}
       </div>
     );
   }
@@ -183,7 +215,7 @@ export default function TimelinePage() {
   if (!activeMember) {
     return (
       <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
-        还没有成员，请先在家庭管理里添加。
+        {t.timeline.emptyMembers}
       </div>
     );
   }
@@ -191,33 +223,35 @@ export default function TimelinePage() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-xs uppercase tracking-[0.3em] text-leaf">时间轴</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-leaf">{t.timeline.title}</p>
         <h2 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-fraunces)" }}>
-          能量记忆
+          {t.timeline.heading}
         </h2>
-        <p className="mt-2 text-sm text-ink/70">按照时间串起每一条闪光点。</p>
+        <p className="mt-2 text-sm text-ink/70">{t.timeline.subtitle}</p>
       </header>
 
-      <MemberTabs members={members} activeId={activeId} onChange={setActiveId} />
+      <MemberTabs members={displayMembers} activeId={activeId} onChange={setActiveId} />
 
       <div className="gradient-panel rounded-xxl p-4 text-xs text-ink/70">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span>开始日期</span>
+            <span>{t.timeline.startDate}</span>
             <input
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
-              className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs"
+              lang={lang}
+              className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs w-[140px]"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span>结束日期</span>
+            <span>{t.timeline.endDate}</span>
             <input
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
-              className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs"
+              lang={lang}
+              className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs w-[140px]"
             />
           </div>
           <button
@@ -228,7 +262,7 @@ export default function TimelinePage() {
               setEndDate("");
             }}
           >
-            清除筛选
+            {t.timeline.clearFilter}
           </button>
         </div>
       </div>
@@ -236,7 +270,7 @@ export default function TimelinePage() {
       <div className="space-y-8">
         {groupEntries.length === 0 ? (
           <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
-            这个成员还没有能量纸条。
+            {t.timeline.emptyNotes}
           </div>
         ) : (
           groupEntries.map(([dateLabel, items]) => (
@@ -259,9 +293,9 @@ export default function TimelinePage() {
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="gradient-panel w-full max-w-md rounded-xxl p-6 shadow-soft">
-            <p className="text-xs uppercase tracking-[0.3em] text-leaf">确认删除</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-leaf">{t.common.deleteConfirmTitle}</p>
             <h3 className="mt-2 text-lg font-semibold" style={{ fontFamily: "var(--font-fraunces)" }}>
-              删除这条能量纸条？
+              {t.common.deleteConfirmText}
             </h3>
             <p className="mt-3 text-sm text-ink/70">
               “{pendingDelete.title}”
@@ -273,7 +307,7 @@ export default function TimelinePage() {
                 onClick={() => setPendingDelete(null)}
                 disabled={deleting}
               >
-                取消
+                {t.common.cancel}
               </button>
               <button
                 type="button"
@@ -281,7 +315,7 @@ export default function TimelinePage() {
                 onClick={confirmDelete}
                 disabled={deleting}
               >
-                {deleting ? "删除中..." : "确认删除"}
+                {deleting ? t.common.deleting : t.common.deleteConfirmTitle}
               </button>
             </div>
           </div>

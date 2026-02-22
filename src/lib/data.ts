@@ -14,6 +14,7 @@ export function getDemoNotes(): NotePreview[] {
       eventDateLabel: "2026/02/20",
       eventDateISO: "2026-02-20T12:00:00.000Z",
       statusLabel: "已接收",
+      status: "ACCEPTED",
       inboxRead: false,
       mediaType: "text"
     },
@@ -29,6 +30,7 @@ export function getDemoNotes(): NotePreview[] {
       eventDateLabel: "2026/02/19",
       eventDateISO: "2026-02-19T12:00:00.000Z",
       statusLabel: "已接收",
+      status: "ACCEPTED",
       inboxRead: true,
       mediaType: "image",
       mediaUrl: "/uploads/demo.jpg",
@@ -46,6 +48,7 @@ export function getDemoNotes(): NotePreview[] {
       eventDateLabel: "2026/02/18",
       eventDateISO: "2026-02-18T12:00:00.000Z",
       statusLabel: "待接收",
+      status: "PENDING",
       inboxRead: false,
       mediaType: "audio",
       mediaDuration: 42

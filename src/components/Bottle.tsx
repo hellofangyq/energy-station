@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { createPortal } from "react-dom";
 import type { NotePreview } from "@/lib/types";
+import { useT } from "@/components/LanguageProvider";
 
 function randomFrom(list: NotePreview[]) {
   return list[Math.floor(Math.random() * list.length)];
@@ -67,6 +68,7 @@ export default function Bottle({
   const [mounted, setMounted] = useState(false);
   const lastIdRef = useRef<string | null>(null);
   const timersRef = useRef<number[]>([]);
+  const { t, lang } = useT();
 
   useEffect(() => {
     setCurrent(notes[0] ?? null);
@@ -84,7 +86,7 @@ export default function Bottle({
     setMounted(true);
   }, []);
 
-  const pending = useMemo(() => notes.filter((note) => note.statusLabel !== "已拒收"), [notes]);
+  const pending = useMemo(() => notes.filter((note) => note.status !== "REJECTED"), [notes]);
 
   const onShake = () => {
     if (pending.length === 0) return;
@@ -126,16 +128,16 @@ export default function Bottle({
       <section className="gradient-panel rounded-xxl p-6 shadow-soft">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-leaf">今日能量</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-leaf">{t.bottle.todayEnergy}</p>
             <h2 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-fraunces)" }}>
-              {memberName} 的能量瓶
+              {memberName} {t.bottle.bottleOf}
             </h2>
           </div>
           <button
             onClick={onShake}
             className="relative z-40 rounded-full bg-ember px-4 py-2 text-xs font-semibold text-white shadow-glow transition hover:-translate-y-0.5"
           >
-            摇一摇
+            {t.bottle.shake}
           </button>
         </div>
         <div className="mt-6 flex items-center justify-center">
@@ -170,7 +172,7 @@ export default function Bottle({
             </div>
             <div
               className={`absolute left-1/2 top-1/2 w-[280px] -translate-x-1/2 -translate-y-1/2 letter-wrap ${
-                opened ? "letter-open" : ""
+                opened ? "letter-open pointer-events-auto" : "pointer-events-none"
               }`}
               onClick={(event) => event.stopPropagation()}
             >
@@ -178,24 +180,24 @@ export default function Bottle({
               <button
                 type="button"
                 className="paper-note w-full text-left"
-                onClick={() => current?.mediaUrl && setOpenMedia(true)}
+                onClick={() => opened && current?.mediaUrl && setOpenMedia(true)}
               >
                 <div className="paper-content">
                   <div className="flex items-center justify-between text-[11px] text-ink/70">
-                    <span>能量纸条</span>
+                    <span>{t.bottle.paper}</span>
                     <span>{current?.eventDateLabel ?? ""}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                    <span>{current?.title ?? "摇一摇吧"}</span>
+                    <span>{current?.title ?? t.bottle.shake}</span>
                     {current?.mediaType && mediaIcons[current.mediaType] && (
                       <span className="inline-flex items-center">{mediaIcons[current.mediaType]}</span>
                     )}
                   </div>
                   <div className="text-xs text-ink/70 max-h-12 overflow-hidden">
-                    {current?.text ?? "打开属于你的一条能量回忆。"}
+                    {current?.text ?? t.bottle.openHint}
                   </div>
                   {current?.senderName && (
-                    <div className="text-[11px] text-ink/60">From {current.senderName}</div>
+                    <div className="text-[11px] text-ink/60 text-right">{t.common.from} {current.senderName}</div>
                   )}
                 </div>
               </button>
@@ -203,9 +205,9 @@ export default function Bottle({
           </div>
         </div>
         <p className="mt-5 text-sm text-ink/70 text-center">
-          摇一摇能量瓶，看看过去的成功时刻。
+          {t.bottle.tip1}
           <br />
-          相信自己，你想做的事，都能做到。
+          {t.bottle.tip2}
         </p>
       </section>
 
@@ -215,10 +217,10 @@ export default function Bottle({
             <div className="max-h-[90vh] w-full max-w-3xl rounded-2xl bg-white p-4" onClick={(event) => event.stopPropagation()}>
               <div className="flex items-center justify-between text-xs text-ink/70">
                 <span>{current.title}</span>
-                <button type="button" onClick={() => setOpenMedia(false)} className="text-ember">关闭</button>
+                <button type="button" onClick={() => setOpenMedia(false)} className="text-ember">{t.common.close}</button>
               </div>
               {current.mediaType === "image" && (
-                <img src={current.mediaUrl} alt="能量图片" className="mt-3 max-h-[70vh] w-full rounded-lg object-contain" />
+                <img src={current.mediaUrl} alt={lang === "en" ? "Energy image" : "能量图片"} className="mt-3 max-h-[70vh] w-full rounded-lg object-contain" />
               )}
               {current.mediaType === "video" && (
                 <video src={current.mediaUrl} controls className="mt-3 max-h-[70vh] w-full rounded-lg" />

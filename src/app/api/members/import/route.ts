@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
+import { getFamilyContext } from "@/lib/family";
 
 type ImportPayload = {
   version?: number;
@@ -25,6 +26,10 @@ export async function POST(req: Request) {
   if (!userId) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  const context = await getFamilyContext(userId);
+  if (!context || context.role !== "OWNER") {
+    return NextResponse.json({ error: "无权操作" }, { status: 403 });
+  }
 
   const body = (await req.json()) as ImportPayload;
   const memberName = String(body.member?.name ?? "").trim();
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
 
   const member = await prisma.member.create({
     data: {
-      userId,
+      userId: context.ownerId,
       name: memberName,
       role: body.member?.role === "SELF" ? "SELF" : "CHILD",
       bottleStyle: body.member?.bottleStyle ?? "bottle"

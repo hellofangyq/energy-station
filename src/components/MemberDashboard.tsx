@@ -5,8 +5,10 @@ import Bottle from "@/components/Bottle";
 import MemberTabs from "@/components/MemberTabs";
 import { useActiveMember } from "@/components/useActiveMember";
 import InboxPanel from "@/components/InboxPanel";
+import { useSessionUser } from "@/components/useSessionUser";
 import type { NotePreview } from "@/lib/types";
 import type { NotificationPreview } from "@/lib/notifications";
+import { useT } from "@/components/LanguageProvider";
 
 type Member = {
   id: string;
@@ -29,7 +31,17 @@ function isSameDay(a: Date, b: Date) {
 }
 
 export default function MemberDashboard({ members, notes, notifications }: Props) {
-  const { activeId, setActiveId, activeMember } = useActiveMember(members);
+  const { t } = useT();
+  const { user } = useSessionUser();
+  const displayMembers = useMemo(() => {
+    if (user?.role === "MEMBER" && user.linkedMemberId) {
+      return members.map((member) =>
+        member.id === user.linkedMemberId ? { ...member, name: user.name } : member
+      );
+    }
+    return members;
+  }, [members, user]);
+  const { activeId, setActiveId, activeMember } = useActiveMember(displayMembers);
 
   const memberNotes = useMemo(() => {
     if (!activeMember) return [];
@@ -53,7 +65,7 @@ export default function MemberDashboard({ members, notes, notifications }: Props
   if (!activeMember) {
     return (
       <div className="gradient-panel rounded-xxl p-6 text-sm text-ink/70">
-        还没有成员，请先在家庭管理里添加。
+        {t.timeline.emptyMembers}
       </div>
     );
   }
@@ -61,7 +73,7 @@ export default function MemberDashboard({ members, notes, notifications }: Props
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <MemberTabs members={members} activeId={activeId} onChange={setActiveId} />
+        <MemberTabs members={displayMembers} activeId={activeId} onChange={setActiveId} />
         <InboxPanel todayNotes={todayNotes} notifications={memberNotifications} />
       </div>
       <Bottle notes={memberNotes} memberName={activeMember.name} />

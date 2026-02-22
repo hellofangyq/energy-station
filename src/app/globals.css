@@ -437,3 +437,25 @@ input.date-input {
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.03); }
 }
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.floaty {
+  animation: floaty 5s ease-in-out infinite;
+}
+
+.floaty-delay-1 {
+  animation-delay: 0.8s;
+}
+
+.floaty-delay-2 {
+  animation-delay: 1.6s;
+}

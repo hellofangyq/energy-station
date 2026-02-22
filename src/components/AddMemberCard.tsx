@@ -3,16 +3,15 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import JSZip from "jszip";
-
-const bottleOptions = [
-  { value: "bottle", label: "能量瓶" },
-  { value: "station", label: "能量站" },
-  { value: "jar", label: "玻璃罐" },
-  { value: "constellation", label: "星图" }
-];
+import { useT } from "@/components/LanguageProvider";
+import { translateError } from "@/lib/error-map";
 
 export default function AddMemberCard() {
+  const { t, lang } = useT();
   const router = useRouter();
+  const bottleOptions = [
+    { value: "bottle", label: lang === "en" ? "Energy Bottle" : "能量瓶" }
+  ];
   const formRef = useRef<HTMLFormElement | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -20,7 +19,7 @@ export default function AddMemberCard() {
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus("正在添加...");
+    setStatus(t.people.adding);
     const formData = new FormData(event.currentTarget);
 
     try {
@@ -36,15 +35,15 @@ export default function AddMemberCard() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "添加失败");
+        throw new Error(translateError(data.error, lang) || t.people.addFail);
       }
 
-      setStatus("添加成功");
+      setStatus(t.people.addSuccess);
       formRef.current?.reset();
       setOpen(false);
       router.refresh();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "添加失败");
+      setStatus(error instanceof Error ? error.message : t.people.addFail);
     }
   };
 
@@ -56,14 +55,14 @@ export default function AddMemberCard() {
           onClick={() => setOpen(true)}
           className="gradient-panel rounded-xxl border border-dashed border-ember/40 p-5 text-left text-sm text-ink/70"
         >
-          + 添加新成员
+          {t.people.addMember}
         </button>
         <button
           type="button"
           onClick={() => importRef.current?.click()}
           className="gradient-panel rounded-xxl border border-dashed border-ember/40 p-5 text-left text-sm text-ink/70"
         >
-          + 导入成员
+          {t.people.importMember}
         </button>
         <input
           ref={importRef}
@@ -73,7 +72,7 @@ export default function AddMemberCard() {
           onChange={async (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            setStatus("正在导入...");
+            setStatus(t.people.importing);
             try {
               let payload: any = null;
               if (file.name.toLowerCase().endsWith(".zip")) {
@@ -83,7 +82,7 @@ export default function AddMemberCard() {
                   zip.file(/data\.json$/i)[0] ||
                   zip.file(/\.json$/i)[0];
                 if (!jsonEntry) {
-                  throw new Error("压缩包中未找到 data.json");
+                  throw new Error(lang === "en" ? "data.json not found in zip" : "压缩包中未找到 data.json");
                 }
                 const text = await jsonEntry.async("text");
                 payload = JSON.parse(text);
@@ -98,12 +97,12 @@ export default function AddMemberCard() {
               });
               if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
-                throw new Error(data.error || "导入失败");
+                throw new Error(translateError(data.error, lang) || t.people.importFail);
               }
-              setStatus("导入成功");
+              setStatus(t.people.importSuccess);
               router.refresh();
             } catch (error) {
-              setStatus(error instanceof Error ? error.message : "导入失败");
+              setStatus(error instanceof Error ? error.message : t.people.importFail);
             } finally {
               if (importRef.current) importRef.current.value = "";
             }
@@ -117,16 +116,16 @@ export default function AddMemberCard() {
   return (
     <form ref={formRef} onSubmit={onSubmit} className="gradient-panel rounded-xxl p-5 shadow-soft space-y-4">
       <div>
-        <label className="text-xs uppercase tracking-[0.3em] text-ink/70">孩子姓名</label>
+        <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.people.childNameLabel}</label>
         <input
           name="name"
           required
-          placeholder="例如：小宇"
+          placeholder={t.people.childNamePlaceholder}
           className="mt-2 w-full rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-sm"
         />
       </div>
       <div>
-        <label className="text-xs uppercase tracking-[0.3em] text-ink/70">能量瓶形态</label>
+        <label className="text-xs uppercase tracking-[0.3em] text-ink/70">{t.people.bottleStyleLabel}</label>
         <div className="mt-2 grid gap-2 md:grid-cols-2">
           {bottleOptions.map((option) => (
             <label key={option.value} className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/60 px-3 py-2 text-sm">
@@ -137,13 +136,13 @@ export default function AddMemberCard() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <button className="rounded-full bg-ember px-4 py-2 text-xs font-semibold text-white shadow-glow">添加</button>
+        <button className="rounded-full bg-ember px-4 py-2 text-xs font-semibold text-white shadow-glow">{t.people.add}</button>
         <button
           type="button"
           onClick={() => setOpen(false)}
           className="text-xs text-ink/60"
         >
-          取消
+          {t.common.cancel}
         </button>
       </div>
       {status && <p className="text-xs text-ink/70">{status}</p>}

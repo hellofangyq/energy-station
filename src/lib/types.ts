@@ -10,6 +10,7 @@ export type NotePreview = {
   eventDateLabel: string;
   eventDateISO: string;
   statusLabel: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
   inboxRead: boolean;
   mediaType: "text" | "image" | "audio" | "video";
   mediaUrl?: string | null;
