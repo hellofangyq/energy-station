@@ -25,6 +25,7 @@ export default function NewEnergyPage() {
   const [compressError, setCompressError] = useState<string | null>(null);
   const [cancelSend, setCancelSend] = useState(false);
   const compressAbortRef = useRef<AbortController | null>(null);
+  const cancelSendRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -315,6 +316,7 @@ export default function NewEnergyPage() {
     setStatus(t.common.loading);
     setCompressError(null);
     setCancelSend(false);
+    cancelSendRef.current = false;
     compressAbortRef.current?.abort();
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
@@ -355,14 +357,14 @@ export default function NewEnergyPage() {
         const controller = new AbortController();
         compressAbortRef.current = controller;
         const compressed = await compressVideo(media, controller.signal);
-        if (cancelSend || controller.signal.aborted) {
+        if (cancelSendRef.current || controller.signal.aborted) {
           setCompressing(false);
           setStatus(null);
           return;
         }
         formData.set("media", compressed);
       } catch (error) {
-        if (cancelSend) {
+        if (cancelSendRef.current) {
           setStatus(null);
           return;
         }
@@ -566,6 +568,7 @@ export default function NewEnergyPage() {
               className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
               onClick={() => {
                 compressAbortRef.current?.abort();
+                cancelSendRef.current = true;
                 setCancelSend(true);
                 setCompressing(false);
                 setStatus(null);
