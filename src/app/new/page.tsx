@@ -302,10 +302,10 @@ export default function NewEnergyPage() {
       currentFfmpegRef.current = null;
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
-    ffmpeg.on("log", ({ message }) => {
+    ffmpeg.on("log", ({ message }: { message: string }) => {
       ffmpegLogRef.current = message;
     });
-    ffmpeg.on("progress", ({ progress }) => {
+    ffmpeg.on("progress", ({ progress }: { progress: number }) => {
       const pct = Math.round(progress * 100);
       if (activeSessionRef.current === sessionId && currentFfmpegRef.current === ffmpeg) {
         setCompressProgress(pct);
