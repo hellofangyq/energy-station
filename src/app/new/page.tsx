@@ -32,6 +32,7 @@ export default function NewEnergyPage() {
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
   const activeSessionRef = useRef(0);
+  const isMobileRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -69,6 +70,9 @@ export default function NewEnergyPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      isMobileRef.current = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
     return () => {
       if (recordedUrl) URL.revokeObjectURL(recordedUrl);
       if (recordTimerRef.current) window.clearTimeout(recordTimerRef.current);
@@ -449,7 +453,8 @@ export default function NewEnergyPage() {
       formData.set("media", recordedFile);
     }
 
-    if (selectedType === "video" && media && media.size > 0) {
+    let clientCompressed = false;
+    if (selectedType === "video" && media && media.size > 0 && isMobileRef.current) {
       try {
         setCompressing(true);
         const controller = new AbortController();
@@ -462,6 +467,7 @@ export default function NewEnergyPage() {
           return;
         }
         formData.set("media", compressed);
+        clientCompressed = true;
       } catch (error) {
         if (cancelSendRef.current || sessionId !== compressSessionRef.current) {
           setStatus(null);
@@ -476,6 +482,9 @@ export default function NewEnergyPage() {
       } finally {
         setCompressing(false);
       }
+    }
+    if (selectedType === "video") {
+      formData.set("clientCompressed", clientCompressed ? "1" : "0");
     }
 
     try {
