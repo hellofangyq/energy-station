@@ -4,6 +4,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
+  serverExternalPackages: ["ffmpeg-static", "fluent-ffmpeg"],
   experimental: {
     middlewareClientMaxBodySize: "50mb"
   },

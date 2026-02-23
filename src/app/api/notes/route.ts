@@ -12,7 +12,7 @@ import { promises as fs } from "fs";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const FFMPEG_PATH = ffmpegPath ?? null;
+const FFMPEG_PATH = typeof ffmpegPath === "string" ? ffmpegPath : null;
 
 async function compressVideoOnServer(input: Buffer, inputExt: string) {
   if (!FFMPEG_PATH) {
@@ -49,6 +49,8 @@ async function compressVideoOnServer(input: Buffer, inputExt: string) {
 
     const data = await fs.readFile(outputPath);
     return data;
+  } catch {
+    return null;
   } finally {
     await fs.unlink(inputPath).catch(() => {});
     await fs.unlink(outputPath).catch(() => {});
