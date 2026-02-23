@@ -32,7 +32,6 @@ export default function NewEnergyPage() {
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
   const activeSessionRef = useRef(0);
-  const isMobileRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -70,9 +69,6 @@ export default function NewEnergyPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof navigator !== "undefined") {
-      isMobileRef.current = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    }
     return () => {
       if (recordedUrl) URL.revokeObjectURL(recordedUrl);
       if (recordTimerRef.current) window.clearTimeout(recordTimerRef.current);
@@ -453,38 +449,8 @@ export default function NewEnergyPage() {
       formData.set("media", recordedFile);
     }
 
-    let clientCompressed = false;
-    if (selectedType === "video" && media && media.size > 0 && isMobileRef.current) {
-      try {
-        setCompressing(true);
-        const controller = new AbortController();
-        compressAbortRef.current = controller;
-        const compressed = await compressVideo(media, controller.signal, sessionId);
-        if (cancelSendRef.current || controller.signal.aborted || sessionId !== compressSessionRef.current) {
-          setCompressing(false);
-          setStatus(null);
-          activeSessionRef.current = 0;
-          return;
-        }
-        formData.set("media", compressed);
-        clientCompressed = true;
-      } catch (error) {
-        if (cancelSendRef.current || sessionId !== compressSessionRef.current) {
-          setStatus(null);
-          activeSessionRef.current = 0;
-          return;
-        }
-        const message =
-          error instanceof Error ? error.message : (lang === "en" ? "Video compression failed" : "视频压缩失败");
-        setCompressError(message);
-        setStatus(message);
-        return;
-      } finally {
-        setCompressing(false);
-      }
-    }
     if (selectedType === "video") {
-      formData.set("clientCompressed", clientCompressed ? "1" : "0");
+      formData.set("clientCompressed", "0");
     }
 
     try {
