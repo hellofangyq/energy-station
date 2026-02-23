@@ -6,7 +6,6 @@ import { useActiveMember } from "@/components/useActiveMember";
 import { useSessionUser } from "@/components/useSessionUser";
 import { useT } from "@/components/LanguageProvider";
 import { translateError } from "@/lib/error-map";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
 
 export default function NewEnergyPage() {
   const { t, lang } = useT();
@@ -28,7 +27,7 @@ export default function NewEnergyPage() {
   const [cancelSend, setCancelSend] = useState(false);
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
-  const currentFfmpegRef = useRef<FFmpeg | null>(null);
+  const currentFfmpegRef = useRef<any | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
   const activeSessionRef = useRef(0);
@@ -225,6 +224,10 @@ export default function NewEnergyPage() {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
     }
 
+    if (typeof window === "undefined") {
+      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
+    }
+    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
     const ffmpeg = new FFmpeg();
     currentFfmpegRef.current = ffmpeg;
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
