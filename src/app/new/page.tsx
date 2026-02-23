@@ -259,14 +259,19 @@ export default function NewEnergyPage() {
     const ffmpeg = new FFmpegClass();
     currentFfmpegRef.current = ffmpeg;
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
+    const stamp = Date.now().toString();
     await withTimeout(
       ffmpeg.load({
-        coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
-        wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`,
-        classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js`
+        coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js?v=${stamp}`,
+        wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm?v=${stamp}`,
+        classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js?v=${stamp}`
       }),
       30000
     );
+    if (!ffmpeg.loaded) {
+      ffmpeg.terminate();
+      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
+    }
     if (signal?.aborted || sessionId !== compressSessionRef.current) {
       ffmpeg.terminate();
       currentFfmpegRef.current = null;
