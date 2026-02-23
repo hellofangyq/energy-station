@@ -15,6 +15,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
   const { t, lang } = useT();
   const { user } = useSessionUser();
   const [items, setItems] = useState<NotePreview[]>(todayNotes);
+  const [noticeItems, setNoticeItems] = useState<NotificationPreview[]>(notifications);
   const [selected, setSelected] = useState<NotePreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -22,11 +23,12 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
   const hasItems = items.length > 0;
   const unreadCount = items.length;
 
-  const groupedNotifications = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
+  const groupedNotifications = useMemo(() => noticeItems.filter((n) => !n.read), [noticeItems]);
 
   useEffect(() => {
     setItems(todayNotes);
     setSelected(null);
+    setNoticeItems(notifications);
   }, [todayNotes]);
 
   const openNote = (note: NotePreview) => {
@@ -55,6 +57,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
     void markNotificationsRead(noticeIds);
     setItems([]);
     setSelected(null);
+    setNoticeItems([]);
   };
 
   const acceptNotes = async (ids: string[]) => {
