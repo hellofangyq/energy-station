@@ -102,14 +102,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const formData = await req.formData();
-  const memberId = String(formData.get("memberId") ?? "");
-  const typeRaw = String(formData.get("type") ?? "text");
-  const title = String(formData.get("title") ?? "");
-  const text = String(formData.get("text") ?? "");
-  const eventDateRaw = String(formData.get("eventDate") ?? "");
-  const media = formData.get("media") as File | null;
-  const clientCompressed = String(formData.get("clientCompressed") ?? "0") === "1";
+  let memberId = "";
+  let typeRaw = "text";
+  let title = "";
+  let text = "";
+  let eventDateRaw = "";
+  let media: File | null = null;
+  let mediaUrl: string | null = null;
+  let mediaType: string | null = null;
+  let clientCompressed = false;
+
+  const contentType = req.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const body = await req.json();
+    memberId = String(body.memberId ?? "");
+    typeRaw = String(body.type ?? "text");
+    title = String(body.title ?? "");
+    text = String(body.text ?? "");
+    eventDateRaw = String(body.eventDate ?? "");
+    mediaUrl = body.mediaUrl ? String(body.mediaUrl) : null;
+    mediaType = body.mediaType ? String(body.mediaType) : null;
+    clientCompressed = String(body.clientCompressed ?? "0") === "1";
+  } else {
+    const formData = await req.formData();
+    memberId = String(formData.get("memberId") ?? "");
+    typeRaw = String(formData.get("type") ?? "text");
+    title = String(formData.get("title") ?? "");
+    text = String(formData.get("text") ?? "");
+    eventDateRaw = String(formData.get("eventDate") ?? "");
+    media = formData.get("media") as File | null;
+    clientCompressed = String(formData.get("clientCompressed") ?? "0") === "1";
+  }
 
   if (!memberId) {
     return NextResponse.json({ error: "缺少接收人" }, { status: 400 });
@@ -132,14 +155,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "不支持的类型" }, { status: 400 });
   }
 
-  if (type !== "text" && (!media || media.size === 0)) {
+  if (type !== "text" && !mediaUrl && (!media || media.size === 0)) {
     return NextResponse.json({ error: "缺少媒体文件" }, { status: 400 });
   }
 
   const eventDate = eventDateRaw ? new Date(`${eventDateRaw}T12:00:00`) : new Date();
 
-  let mediaUrl: string | null = null;
-  if (media && media.size > 0) {
+  if (!mediaUrl && media && media.size > 0) {
     const extension = media.name.split(".").pop() || "bin";
     const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${extension}`;
     let buffer = Buffer.from(await media.arrayBuffer());
@@ -168,6 +190,26 @@ export async function POST(req: Request) {
       const finalName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${outputExt}`;
       await writeFile(path.join(UPLOAD_DIR, finalName), buffer);
       mediaUrl = `/uploads/${finalName}`;
+    }
+  }
+
+  if (mediaUrl && type === "video" && !clientCompressed && BLOB_TOKEN) {
+    try {
+      const response = await fetch(mediaUrl);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const extMatch = mediaUrl.split("?")[0].split(".").pop() || "bin";
+      const compressed = await compressVideoOnServer(buffer, extMatch);
+      if (compressed && compressed.length > 0) {
+        const finalName = `${Date.now()}-${Math.random().toString(16).slice(2)}.mp4`;
+        const blob = await put(finalName, compressed, {
+          access: "public",
+          contentType: "video/mp4",
+          token: BLOB_TOKEN
+        });
+        mediaUrl = blob.url;
+      }
+    } catch {
+      // keep original mediaUrl
     }
   }
 
