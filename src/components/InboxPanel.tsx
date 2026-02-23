@@ -46,6 +46,9 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
 
   const clearItems = () => {
     const noteIds = items.map((item) => item.id);
+    if (selected && !noteIds.includes(selected.id)) {
+      noteIds.push(selected.id);
+    }
     const noticeIds = groupedNotifications.map((notice) => notice.id);
     void acceptNotes(noteIds);
     void markRead(noteIds);
@@ -129,7 +132,7 @@ export default function InboxPanel({ todayNotes, notifications }: Props) {
           <div className="inbox-section">
             <div className="inbox-row">
               <div className="inbox-title">{t.inbox.today}</div>
-            {hasItems && (
+            {(hasItems || groupedNotifications.length > 0 || selected) && (
               <button type="button" className="inbox-clear" onClick={clearItems}>
                 {t.inbox.clear}
               </button>
