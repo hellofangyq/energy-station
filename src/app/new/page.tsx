@@ -28,6 +28,7 @@ export default function NewEnergyPage() {
   const compressAbortRef = useRef<AbortController | null>(null);
   const cancelSendRef = useRef(false);
   const currentFfmpegRef = useRef<any | null>(null);
+  const ffmpegScriptRef = useRef<HTMLScriptElement | null>(null);
   const ffmpegLogRef = useRef<string | null>(null);
   const compressSessionRef = useRef(0);
   const activeSessionRef = useRef(0);
@@ -219,6 +220,33 @@ export default function NewEnergyPage() {
     }
   };
 
+  const loadFfmpegScript = async () => {
+    if (typeof window === "undefined") {
+      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
+    }
+    if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
+    if (ffmpegScriptRef.current) {
+      await new Promise<void>((resolve, reject) => {
+        ffmpegScriptRef.current?.addEventListener("load", () => resolve(), { once: true });
+        ffmpegScriptRef.current?.addEventListener("error", () => reject(new Error("load failed")), { once: true });
+      });
+      if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
+      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
+    }
+    const script = document.createElement("script");
+    script.src = "/ffmpeg/ffmpeg.js";
+    script.async = true;
+    ffmpegScriptRef.current = script;
+    const loaded = new Promise<void>((resolve, reject) => {
+      script.addEventListener("load", () => resolve(), { once: true });
+      script.addEventListener("error", () => reject(new Error("load failed")), { once: true });
+    });
+    document.head.appendChild(script);
+    await loaded;
+    if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
+    throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
+  };
+
   const compressVideo = async (file: File, signal: AbortSignal | undefined, sessionId: number): Promise<File> => {
     if (signal?.aborted) {
       throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
@@ -227,8 +255,8 @@ export default function NewEnergyPage() {
     if (typeof window === "undefined") {
       throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
     }
-    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-    const ffmpeg = new FFmpeg();
+    const FFmpegClass = await loadFfmpegScript();
+    const ffmpeg = new FFmpegClass();
     currentFfmpegRef.current = ffmpeg;
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
     await withTimeout(

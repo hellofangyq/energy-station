@@ -56,4 +56,12 @@ if (fs.existsSync(errorsSrc)) {
   console.warn(`[ffmpeg] Missing errors file: ${errorsSrc}`);
 }
 
+const umdSrc = path.join(rootDir, "node_modules", "@ffmpeg", "ffmpeg", "dist", "umd", "ffmpeg.js");
+const umdDest = path.join(targetDir, "ffmpeg.js");
+if (fs.existsSync(umdSrc)) {
+  fs.copyFileSync(umdSrc, umdDest);
+} else {
+  console.warn(`[ffmpeg] Missing ffmpeg UMD file: ${umdSrc}`);
+}
+
 console.log("[ffmpeg] Core files copied to public/ffmpeg");
