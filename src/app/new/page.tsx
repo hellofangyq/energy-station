@@ -6,6 +6,7 @@ import { useActiveMember } from "@/components/useActiveMember";
 import { useSessionUser } from "@/components/useSessionUser";
 import { useT } from "@/components/LanguageProvider";
 import { translateError } from "@/lib/error-map";
+import { upload } from "@vercel/blob/client";
 
 export default function NewEnergyPage() {
   const { t, lang } = useT();
@@ -21,17 +22,7 @@ export default function NewEnergyPage() {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordDuration, setRecordDuration] = useState<number | null>(null);
-  const [compressing, setCompressing] = useState(false);
-  const [compressError, setCompressError] = useState<string | null>(null);
-  const [compressProgress, setCompressProgress] = useState<number | null>(null);
-  const [cancelSend, setCancelSend] = useState(false);
-  const compressAbortRef = useRef<AbortController | null>(null);
-  const cancelSendRef = useRef(false);
-  const currentFfmpegRef = useRef<any | null>(null);
-  const ffmpegScriptRef = useRef<HTMLScriptElement | null>(null);
-  const ffmpegLogRef = useRef<string | null>(null);
-  const compressSessionRef = useRef(0);
-  const activeSessionRef = useRef(0);
+  const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -76,30 +67,7 @@ export default function NewEnergyPage() {
     };
   }, [recordedUrl]);
 
-  useEffect(() => {
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      const message = String(event.reason?.message ?? event.reason ?? "");
-      if (message.includes("ffmpeg is not loaded")) {
-        event.preventDefault();
-        setCompressError(lang === "en" ? "Compression cancelled" : "已取消压缩");
-        setStatus(lang === "en" ? "Compression cancelled" : "已取消压缩");
-      }
-    };
-    const handleError = (event: ErrorEvent) => {
-      const message = String(event.error?.message ?? event.message ?? "");
-      if (message.includes("ffmpeg is not loaded")) {
-        event.preventDefault();
-        setCompressError(lang === "en" ? "Compression cancelled" : "已取消压缩");
-        setStatus(lang === "en" ? "Compression cancelled" : "已取消压缩");
-      }
-    };
-    window.addEventListener("unhandledrejection", handleRejection);
-    window.addEventListener("error", handleError);
-    return () => {
-      window.removeEventListener("unhandledrejection", handleRejection);
-      window.removeEventListener("error", handleError);
-    };
-  }, [lang]);
+
 
   const currentMembers = useMemo(() => {
     if (members.length > 0) return members;
@@ -233,189 +201,23 @@ export default function NewEnergyPage() {
     setRecordError(null);
   };
 
-  const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
-    let timer: number | undefined;
+  const uploadVideo = async (file: File) => {
+    setUploading(true);
     try {
-      return await new Promise<T>((resolve, reject) => {
-        timer = window.setTimeout(() => reject(new Error("timeout")), ms);
-        promise.then(resolve).catch(reject);
+      const blob = await upload(file.name, file, {
+        access: "public",
+        contentType: file.type || "video/mp4",
+        handleUploadUrl: "/api/blob/upload"
       });
+      return { url: blob.url, mediaType: file.type || "video/mp4" };
     } finally {
-      if (timer) window.clearTimeout(timer);
+      setUploading(false);
     }
-  };
-
-  const loadFfmpegScript = async () => {
-    if (typeof window === "undefined") {
-      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
-    }
-    if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
-    if (ffmpegScriptRef.current) {
-      await new Promise<void>((resolve, reject) => {
-        ffmpegScriptRef.current?.addEventListener("load", () => resolve(), { once: true });
-        ffmpegScriptRef.current?.addEventListener("error", () => reject(new Error("load failed")), { once: true });
-      });
-      if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
-      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
-    }
-    const script = document.createElement("script");
-    script.src = "/ffmpeg/ffmpeg.js";
-    script.async = true;
-    ffmpegScriptRef.current = script;
-    const loaded = new Promise<void>((resolve, reject) => {
-      script.addEventListener("load", () => resolve(), { once: true });
-      script.addEventListener("error", () => reject(new Error("load failed")), { once: true });
-    });
-    document.head.appendChild(script);
-    await loaded;
-    if ((window as any).FFmpegWASM?.FFmpeg) return (window as any).FFmpegWASM.FFmpeg;
-    throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
-  };
-
-  const compressVideo = async (file: File, signal: AbortSignal | undefined, sessionId: number): Promise<File> => {
-    if (signal?.aborted) {
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-
-    if (typeof window === "undefined") {
-      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
-    }
-    const FFmpegClass = await loadFfmpegScript();
-    const ffmpeg = new FFmpegClass();
-    currentFfmpegRef.current = ffmpeg;
-    const baseURL = typeof window !== "undefined" ? window.location.origin : "";
-    const stamp = Date.now().toString();
-    await withTimeout(
-      ffmpeg.load({
-        coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js?v=${stamp}`,
-        wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm?v=${stamp}`,
-        classWorkerURL: `${baseURL}/ffmpeg/ffmpeg-worker.js?v=${stamp}`
-      }),
-      30000
-    );
-    if (!ffmpeg.loaded) {
-      ffmpeg.terminate();
-      throw new Error(lang === "en" ? "Compression not available" : "当前环境无法压缩");
-    }
-    if (signal?.aborted || sessionId !== compressSessionRef.current) {
-      ffmpeg.terminate();
-      currentFfmpegRef.current = null;
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-    ffmpeg.on("log", ({ message }: { message: string }) => {
-      ffmpegLogRef.current = message;
-    });
-    ffmpeg.on("progress", ({ progress }: { progress: number }) => {
-      const pct = Math.round(progress * 100);
-      if (activeSessionRef.current === sessionId && currentFfmpegRef.current === ffmpeg) {
-        setCompressProgress(pct);
-      }
-    });
-    if (signal?.aborted) {
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-
-    const inputName = `input-${Date.now()}`;
-    const outputName = `output-${Date.now()}.mp4`;
-
-    const buffer = await file.arrayBuffer();
-    await ffmpeg.writeFile(inputName, new Uint8Array(buffer));
-
-    if (signal?.aborted) {
-      ffmpeg.deleteFile(inputName);
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-
-    try {
-    const execPromise = ffmpeg.exec([
-      "-i",
-      inputName,
-      "-vf",
-      "scale=-2:480",
-      "-r",
-      "24",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-b:v",
-      "450k",
-      "-maxrate",
-      "500k",
-      "-bufsize",
-      "1000k",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "64k",
-      "-movflags",
-      "+faststart",
-      outputName
-      ], 60000, { signal });
-    const execResult = await execPromise;
-    if (execResult !== 0) {
-      throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
-    }
-  } catch (error) {
-    ffmpeg.deleteFile(inputName);
-    ffmpeg.deleteFile(outputName);
-    if (currentFfmpegRef.current === ffmpeg) {
-      currentFfmpegRef.current = null;
-    }
-    ffmpeg.terminate();
-    const raw = error instanceof Error ? error.message : "";
-    if (raw.includes("Aborted()") || raw.includes("timeout")) {
-      throw new Error(
-        lang === "en"
-          ? "Compression timed out. Try again or use a smaller video."
-          : "压缩超时，请重试或使用更小的视频。"
-      );
-    }
-    const hint = ffmpegLogRef.current ? ` (${ffmpegLogRef.current})` : "";
-    throw new Error(lang === "en" ? `Compression failed${hint}` : `压缩失败${hint}`);
-  }
-
-    if (signal?.aborted) {
-      ffmpeg.deleteFile(inputName);
-      ffmpeg.deleteFile(outputName);
-      if (currentFfmpegRef.current === ffmpeg) {
-        currentFfmpegRef.current = null;
-      }
-      ffmpeg.terminate();
-      throw new Error(lang === "en" ? "Compression cancelled" : "已取消压缩");
-    }
-
-    const data = await ffmpeg.readFile(outputName);
-    ffmpeg.deleteFile(inputName);
-    ffmpeg.deleteFile(outputName);
-    if (currentFfmpegRef.current === ffmpeg) {
-      currentFfmpegRef.current = null;
-    }
-    ffmpeg.terminate();
-
-    const blob = new Blob([data], { type: "video/mp4" });
-    if (blob.size === 0) {
-      throw new Error(lang === "en" ? "Compression failed" : "压缩失败");
-    }
-    if (blob.size >= file.size * 0.95) {
-      return file;
-    }
-    return new File([blob], file.name.replace(/\\.\w+$/, ".mp4"), { type: "video/mp4" });
   };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(t.common.loading);
-    setCompressError(null);
-    setCompressProgress(null);
-    setCancelSend(false);
-    cancelSendRef.current = false;
-    compressAbortRef.current?.abort();
-    compressSessionRef.current += 1;
-    const sessionId = compressSessionRef.current;
-    activeSessionRef.current = sessionId;
     const formData = new FormData(event.currentTarget);
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
@@ -449,11 +251,36 @@ export default function NewEnergyPage() {
       formData.set("media", recordedFile);
     }
 
-    if (selectedType === "video") {
-      formData.set("clientCompressed", "0");
-    }
-
     try {
+      if (selectedType === "video" && media && media.size > 0) {
+        setStatus(lang === "en" ? "Uploading video..." : "正在上传视频...");
+        const uploaded = await uploadVideo(media);
+        const response = await fetch("/api/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            memberId,
+            type: "video",
+            title,
+            text,
+            eventDate: eventDateRaw,
+            mediaUrl: uploaded.url,
+            mediaType: uploaded.mediaType,
+            clientCompressed: "0"
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(translateError(data.error, lang) || (lang === "en" ? "Send failed" : "发送失败"));
+        }
+
+        setStatus(lang === "en" ? "Sent. The energy is in the bottle." : "发送成功，能量已进入瓶中。");
+        formRef.current?.reset();
+        resetRecording();
+        return;
+      }
+
       const response = await fetch("/api/notes", {
         method: "POST",
         body: formData
@@ -619,12 +446,6 @@ export default function NewEnergyPage() {
             </div>
           )}
           <p className="mt-2 text-xs text-ink/60">{t.new.mediaHint}</p>
-          {selectedType === "video" && compressing && (
-            <p className="mt-2 text-xs text-ink/60">
-              {lang === "en" ? "Compressing video…" : "正在压缩视频…"}
-            </p>
-          )}
-          {compressError && <p className="mt-2 text-xs text-ember">{compressError}</p>}
           {fileError && <p className="mt-2 text-xs text-ember">{fileError}</p>}
         </div>
 
@@ -636,36 +457,6 @@ export default function NewEnergyPage() {
         </div>
       </form>
 
-      {compressing && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-soft">
-            <p className="text-sm text-ink/80">
-              {lang === "en" ? "Compressing video…" : "正在压缩视频……"}
-              {compressProgress !== null ? ` ${compressProgress}%` : ""}
-            </p>
-            <button
-              type="button"
-              className="mt-4 rounded-full border border-ember/40 px-4 py-1.5 text-xs text-ember"
-              onClick={() => {
-                compressAbortRef.current?.abort();
-                cancelSendRef.current = true;
-                compressSessionRef.current += 1;
-                activeSessionRef.current = 0;
-                if (currentFfmpegRef.current) {
-                  currentFfmpegRef.current.terminate();
-                  currentFfmpegRef.current = null;
-                }
-                setCancelSend(true);
-                setCompressProgress(null);
-                setCompressing(false);
-                setStatus(null);
-              }}
-            >
-              {lang === "en" ? "Cancel send" : "取消发送"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
