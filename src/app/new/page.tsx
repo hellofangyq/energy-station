@@ -76,6 +76,31 @@ export default function NewEnergyPage() {
     };
   }, [recordedUrl]);
 
+  useEffect(() => {
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const message = String(event.reason?.message ?? event.reason ?? "");
+      if (message.includes("ffmpeg is not loaded")) {
+        event.preventDefault();
+        setCompressError(lang === "en" ? "Compression cancelled" : "已取消压缩");
+        setStatus(lang === "en" ? "Compression cancelled" : "已取消压缩");
+      }
+    };
+    const handleError = (event: ErrorEvent) => {
+      const message = String(event.error?.message ?? event.message ?? "");
+      if (message.includes("ffmpeg is not loaded")) {
+        event.preventDefault();
+        setCompressError(lang === "en" ? "Compression cancelled" : "已取消压缩");
+        setStatus(lang === "en" ? "Compression cancelled" : "已取消压缩");
+      }
+    };
+    window.addEventListener("unhandledrejection", handleRejection);
+    window.addEventListener("error", handleError);
+    return () => {
+      window.removeEventListener("unhandledrejection", handleRejection);
+      window.removeEventListener("error", handleError);
+    };
+  }, [lang]);
+
   const currentMembers = useMemo(() => {
     if (members.length > 0) return members;
     return [];
