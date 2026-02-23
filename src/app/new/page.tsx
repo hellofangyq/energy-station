@@ -222,6 +222,9 @@ export default function NewEnergyPage() {
     const memberId = formData.get("memberId");
     const fileValid = await validateFile();
     const media = formData.get("media") as File | null;
+    const title = String(formData.get("title") ?? "");
+    const text = String(formData.get("text") ?? "");
+    const eventDateRaw = String(formData.get("eventDate") ?? "");
 
     if (!memberId) {
       setStatus(lang === "en" ? "Please select a recipient" : "请选择接收对象");
